@@ -36,12 +36,12 @@ class TBSession
     return @
   getSubscribersForStream: (stream) ->
     return @
-  publish: (divName, properties) =>
+  publish: (divObject, properties) =>
     if( @alreadyPublishing )
       pdebug("Session is already publishing", {})
       return
     @alreadyPublishing = true
-    @publisher = new TBPublisher(divName, properties)
+    @publisher = new TBPublisher(divObject, properties)
     @publish( @publisher )
   publish: () =>
     if( @alreadyPublishing )
@@ -72,16 +72,16 @@ class TBSession
       return subscriber
     if( three? )
       # stream, domId, properties || stream, domId, completionHandler || stream, properties, completionHandler
-      if( (typeof(two) == "string" || two.nodeType == 1) && typeof(three) == "object" )
+      if( (typeof(two) == "string" || two.nodeType == 1 || two instanceof Element) && typeof(three) == "object" )
         console.log("stream, domId, props")
         subscriber = new TBSubscriber(one, two, three)
         return subscriber
-      if( (typeof(two) == "string" || two.nodeType == 1) && typeof(three) == "function" )
+      if( (typeof(two) == "string" || two.nodeType == 1 || two instanceof Element) && typeof(three) == "function" )
         console.log("stream, domId, completionHandler")
         @subscriberCallbacks[one.streamId]=three
-        subscriber = new TBSubscriber(one, domId, {})
+        subscriber = new TBSubscriber(one, two, {})
         return subscriber
-      if( typeof(two) == "object" && typeof(three) == "function" )
+      if(typeof(two) == "object" && typeof(three) == "function" )
         console.log("stream, props, completionHandler")
         @subscriberCallbacks[one.streamId] = three
         domId = TBGenerateDomHelper()
@@ -89,7 +89,7 @@ class TBSession
         return subscriber
     if( two? )
       # stream, domId || stream, properties || stream,completionHandler
-      if( (typeof(two) == "string" || two.nodeType == 1) )
+      if( (typeof(two) == "string" || two.nodeType == 1 || two instanceof Element) )
         subscriber = new TBSubscriber(one, two, {})
         return subscriber
       if( typeof(two) == "object" )
@@ -108,7 +108,7 @@ class TBSession
   unpublish:() ->
     @alreadyPublishing = false
     console.log("JS: Unpublish")
-    element = document.getElementById( @publisher.domId )
+    element = @publisher.pubElement
     if(element)
       @resetElement(element)
       TBUpdateObjects()
@@ -140,14 +140,18 @@ class TBSession
         @resetElement(e)
       objects = document.getElementsByClassName('OT_root')
   resetElement: (element) =>
-    attributes = ['style', 'data-streamid', 'class']
-    elementChildren = element.childNodes
-    element.removeAttribute attribute for attribute in attributes
-    for childElement in elementChildren
-      childClass = childElement.getAttribute 'class'
-      if childClass == 'OT_video-container'
-        element.removeChild childElement
-        break
+    insertMode = element.getAttribute('data-insertMode')
+    if (insertMode == "replace")
+      attributes = ['style', 'data-streamid', 'class', 'data-insertMode']
+      elementChildren = element.childNodes
+      element.removeAttribute attribute for attribute in attributes
+      for childElement in elementChildren
+        childClass = childElement.getAttribute 'class'
+        if childClass == 'OT_video-container'
+          element.removeChild childElement
+          break
+     else
+       element.parentNode.removeChild(element)
     return
     
   # event listeners
@@ -169,6 +173,7 @@ class TBSession
     delete( @connections[ connection.connectionId] )
     return @
   sessionConnected: (event) =>
+    document.addEventListener('scroll', OTOnScrollEvent, true);
     pdebug "sessionConnectedHandler", event
     @trigger("sessionConnected")
     @connection = new TBConnection( event.connection )
@@ -176,6 +181,7 @@ class TBSession
     event = null
     return @
   sessionDisconnected: (event) =>
+    document.removeEventListener('scroll', OTOnScrollEvent);
     pdebug "sessionDisconnected event", event
     @alreadyPublishing = false
     sessionDisconnectedEvent = new TBEvent( { reason: event.reason } )

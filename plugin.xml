@@ -9,10 +9,12 @@
     <license>Apache 2.0</license>
     <keywords>opentok,tokbox</keywords>
 
+    <dependency id="cordova-plugin-wkwebview-engine" version="1.1.4"/>
+
     <platform name="android">
       <framework src="build-extras.gradle" custom="true" type="gradleReference" />
       <asset src="www/opentok.js" target="opentok.js" />
-  	  <source-file src="src/android/OpenTokAndroidPlugin.java" target-dir="src/com/tokbox/cordova/" />
+      <source-file src="src/android/OpenTokAndroidPlugin.java" target-dir="src/com/tokbox/cordova/" />
       
       <config-file target="AndroidManifest.xml" parent="/manifest">
         <uses-permission android:name="android.permission.CAMERA" />
@@ -78,11 +80,14 @@
 
       <!-- Adopts project's config.xml to include the OpenTokPlugin and domain whitelists -->
       <config-file target="config.xml" parent="/*">
-        <access origin="*" />
         <feature name="OpenTokPlugin">
           <param name="ios-package" value="OpenTokPlugin"/>
           <param name="onload" value="true"/>
         </feature>
+        <feature name="CDVWKWebViewEngine">
+          <param name="ios-package" value="CDVWKWebViewEngine" />
+        </feature>
+        <preference name="CordovaWebViewEngine" value="CDVWKWebViewEngine" />
       </config-file>
 
       <!-- add required entries into plist file -->
@@ -97,5 +102,5 @@
     <platform name="browser">
       <hook type="before_plugin_install" src="scripts/downloadJSSDK.js" />
       <asset src="node_modules/@opentok/client/dist/js/opentok.min.js" target="opentok.js"/>
-  </platform>
+    </platform>
 </plugin>

@@ -18,12 +18,12 @@ class TBPublisher
   constructor: (one, two) ->
     @sanitizeInputs(one, two)
     pdebug "creating publisher", {}
-    position = getPosition(@domId)
+    position = getPosition(@pubElement)
     name=""
     publishAudio="true"
     publishVideo="true"
     cameraName = "front"
-    zIndex = TBGetZIndex(document.getElementById(@domId))
+    zIndex = TBGetZIndex(@pubElement)
     ratios = TBGetScreenRatios()
     audioFallbackEnabled = "true"
     audioBitrate = 40000
@@ -31,6 +31,7 @@ class TBPublisher
     videoSource = "true"
     frameRate = 30
     resolution = "640X480"
+    insertMode = "replace"
     if @properties?
       width = @properties.width ? position.width
       height = @properties.height ? position.height
@@ -52,12 +53,12 @@ class TBPublisher
         audioSource="false"
       if(@properties.videoSource? || @properties.videoSource==false)
         videoSource="false"
+      insertMode = @properties.insertMode ? insertMode
     if (not width?) or width == 0 or (not height?) or height==0
       width = DefaultWidth
       height = DefaultHeight
-    @pubElement = document.getElementById(@domId)
-    replaceWithVideoStream(@domId, PublisherStreamId, {width:width, height:height})
-    position = getPosition(@domId)
+    replaceWithVideoStream(@pubElement, PublisherStreamId, {width:width, height:height, insertMode:insertMode})
+    position = getPosition(@pubElement)
     TBUpdateObjects()
     OT.getHelper().eventing(@)
     Cordova.exec(TBSuccess, TBError, OTPlugin, "initPublisher", [name, position.top, position.left, width, height, zIndex, publishAudio, publishVideo, cameraName, ratios.widthRatio, ratios.heightRatio, audioFallbackEnabled, audioBitrate, audioSource, videoSource, frameRate, resolution] )
@@ -116,24 +117,38 @@ class TBPublisher
   sanitizeInputs: (one, two) ->
     if( two? )
       # all 2 optional properties present: domId, properties
-      @domId = one
+      if one instanceof Element
+        @pubElement = one
+        @domId = @pubElement.id
+      else
+        @domId = one
+        @pubElement = document.getElementById(one)
       @properties = two
     else if( one? )
       # only 1 property is present domId || properties
-      if( typeof(one) == "object" )
+      if one instanceof Element
+        @pubElement = one
+        @domId = @pubElement.id
+      else if( typeof(one) == "object" )
         @properties = one
       else
         @domId = one
+        @pubElement = document.getElementById(one)
     @properties = if( @properties and typeof( @properties == "object" )) then @properties else {}
+    # if domId does NOT exists and an element is provided, create a unique domId
+    if (!@domId and @pubElement)
+      @domId = "PubSub" + Date.now();
+      @pubElement.setAttribute('id', @domId)
     # if domId exists but properties width or height is not specified, set properties
-    if( @domId and document.getElementById( @domId ) )
+    if( @domId and @pubElement )
       if !@properties.width or !@properties.height
         console.log "domId exists but properties width or height is not specified"
-        position = getPosition( @domId )
+        position = getPosition( @pubElement )
         console.log " width: #{position.width} and height: #{position.height} for domId #{@domId}, and top: #{position.top}, left: #{position.left}"
         if position.width > 0 and position.height > 0
           @properties.width = position.width
           @properties.height = position.height
     else
       @domId = TBGenerateDomHelper()
+      @pubElement = document.getElementById(@domId)
     return @

@@ -46,8 +46,6 @@ import com.opentok.android.Subscriber;
 import com.opentok.android.SubscriberKit;
 import com.opentok.android.BaseVideoRenderer;
 
-import com.github.ksoichiro.android.observablescrollview.ObservableScrollView;
-
 public class OpenTokAndroidPlugin extends CordovaPlugin
         implements  Session.SessionListener,
                     Session.ConnectionListener,
@@ -73,11 +71,14 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
     public static final String[] perms = {Manifest.permission.INTERNET, Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO};
     public CallbackContext permissionsCallback;
 
-
     public class RunnableUpdateViews implements Runnable {
         public JSONArray mProperty;
         public View mView;
         public ArrayList<RunnableUpdateViews> allStreamViews;
+
+        // Used for setting the camera views.
+        public float widthRatio;
+        public float heightRatio;
 
         public class CustomComparator implements Comparator<RunnableUpdateViews> {
             @Override
@@ -119,14 +120,24 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             }
         }
 
+        public void setPosition() {
+            try {
+                mView.setX(mProperty.getInt(2) * widthRatio);
+                mView.setY(mProperty.getInt(1) * heightRatio);
+
+                ViewGroup.LayoutParams params = mView.getLayoutParams();
+                params.width = (int) (mProperty.getInt(3) * widthRatio);
+                params.height = (int) (mProperty.getInt(4) * heightRatio);
+                mView.setLayoutParams(params);
+            } catch (Exception e) {}
+        }
+
         @SuppressLint("NewApi")
         @Override
         public void run() {
             try {
                 Log.i(TAG, "updating view in ui runnable" + mProperty.toString());
                 Log.i(TAG, "updating view in ui runnable " + mView.toString());
-
-                float widthRatio, heightRatio;
 
                 // Ratios are index 6 & 7 on TB.updateViews, 8 & 9 on subscribe event, and 9 & 10 on TB.initPublisher
                 int ratioIndex;
@@ -143,12 +154,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
                 widthRatio = (float) mProperty.getDouble(ratioIndex) * metrics.density;
                 heightRatio = (float) mProperty.getDouble(ratioIndex + 1) * metrics.density;
-                mView.setY(mProperty.getInt(1) * heightRatio);
-                mView.setX(mProperty.getInt(2) * widthRatio);
-                ViewGroup.LayoutParams params = mView.getLayoutParams();
-                params.height = (int) (mProperty.getInt(4) * heightRatio);
-                params.width = (int) (mProperty.getInt(3) * widthRatio);
-                mView.setLayoutParams(params);
+                setPosition();
                 updateZIndices();
             } catch (Exception e) {
                 Log.i(TAG, "error when trying to retrieve properties while resizing properties");
@@ -421,22 +427,6 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
         // Make the web view transparent.
         _webView.getView().setBackgroundColor(Color.argb(1, 0, 0, 0));
 
-
-        cordova.getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                // original layout
-                ViewGroup frameLayout = (ViewGroup) _webView.getView().getParent();
-                ViewGroup layoutParent = (ViewGroup) frameLayout.getParent();
-                layoutParent.removeView(frameLayout);
-
-                // Observable scroll view with webView and cameraViews as children
-                ObservableScrollView scrollView = new ObservableScrollView(_cordova.getActivity().getApplicationContext());
-                scrollView.addView(frameLayout);
-                layoutParent.addView(scrollView);
-            }
-        });
-
         Log.d(TAG, "Initialize Plugin");
         // By default, get a pointer to mainView and add mainView to the viewList as it always exists (hold cordova's view)
         if (!viewList.has("mainView")) {
@@ -585,6 +575,30 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
                     runsub.setPropertyFromArray(args);
                     cordova.getActivity().runOnUiThread(runsub);
                 }
+            }
+        } else if (action.equals("hasStatusBarPlugin")) {
+            // Currently only needed for iOS, but for the sake of sanity we include it here aswell.
+        } else if (action.equals("updateCamera")) {
+            int top = args.getInt(1);
+            int left = args.getInt(2);
+            int width = args.getInt(3);
+            int height = args.getInt(4);
+
+            if (args.getString(0).equals("TBPublisher") && myPublisher != null && sessionConnected) {
+                myPublisher.mProperty.put(1, top);
+                myPublisher.mProperty.put(2, left);
+                myPublisher.mProperty.put(3, width);
+                myPublisher.mProperty.put(4, height);
+
+                myPublisher.setPosition();
+            } else {
+                RunnableSubscriber runsub = subscriberCollection.get(args.getString(0));
+                runsub.mProperty.put(1, top);
+                runsub.mProperty.put(2, left);
+                runsub.mProperty.put(3, width);
+                runsub.mProperty.put(4, height);
+
+                runsub.setPosition();
             }
         } else if (action.equals("exceptionHandler")) {
 
