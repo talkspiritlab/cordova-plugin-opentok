@@ -402,19 +402,94 @@
     NSMutableDictionary* eventData = [[NSMutableDictionary alloc] init];
     NSString* streamId = sub.stream.streamId;
     [eventData setObject:streamId forKey:@"streamId"];
-    [self triggerJSEvent: @"sessionEvents" withType: @"subscribedToStream" withData: eventData];
-
+    [self triggerJSEvent: @"subscriberEvents" withType: @"connected" withData: eventData];
+    [self triggerJSEvent: @"sessionEvents" withType: @"subscribedToStream" withData: eventData]; // Backwards compatibility
 }
-- (void)subscriber:(OTSubscriber*)subscrib didFailWithError:(OTError*)error{
+- (void)subscriberDidDisconnectFromStream:(OTSubscriberKit*)sub{
+    NSMutableDictionary* eventData = [[NSMutableDictionary alloc] init];
+    NSString* streamId = sub.stream.streamId;
+    [eventData setObject:streamId forKey:@"streamId"];
+    [self triggerJSEvent: @"subscriberEvents" withType: @"disconnected" withData: eventData];
+}
+- (void)subscriber:(OTSubscriber*)sub didFailWithError:(OTError*)error{
     NSLog(@"subscriber didFailWithError %@", error);
     NSMutableDictionary* eventData = [[NSMutableDictionary alloc] init];
-    NSString* streamId = subscrib.stream.streamId;
+    NSString* streamId = sub.stream.streamId;
     NSNumber* errorCode = [NSNumber numberWithInt:1600];
     [eventData setObject: errorCode forKey:@"errorCode"];
     [eventData setObject:streamId forKey:@"streamId"];
     [self triggerJSEvent: @"sessionEvents" withType: @"subscribedToStream" withData: eventData];
 }
+- (void)subscriberVideoDataReceived:(OTSubscriber*)sub{
+    [self triggerJSEvent: @"subscriberEvents" withType: @"videoDataReceived" withData: nil];
+}
+- (void)subscriberVideoDisabled:(OTSubscriberKit*)sub reason:(OTSubscriberVideoEventReason)reason{
+    NSMutableDictionary* eventData = [[NSMutableDictionary alloc] init];
+    NSString* reasonData = [self validateReason: reason];
 
+    [eventData setObject: reasonData forKey:@"reason"];
+    [self triggerJSEvent: @"subscriberEvents" withType: @"videoDisabled" withData: eventData];
+}
+- (void)subscriberVideoDisableWarning:(OTSubscriberKit*)sub{
+    [self triggerJSEvent: @"subscriberEvents" withType: @"videoDisableWarning" withData: nil];
+}
+- (void)subscriberVideoDisableWarningLifted:(OTSubscriberKit*)sub{
+    [self triggerJSEvent: @"subscriberEvents" withType: @"videoDisableWarningLifted" withData: nil];
+}
+- (void)subscriberVideoEnabled:(OTSubscriberKit*)sub reason:(OTSubscriberVideoEventReason)reason{
+    NSMutableDictionary* eventData = [[NSMutableDictionary alloc] init];
+    NSString* reasonData = [self validateReason: reason];
+    
+    [eventData setObject: reasonData forKey:@"reason"];
+    [self triggerJSEvent: @"subscriberEvents" withType: @"videoEnabled" withData: eventData];
+}
+- (void)subscriber:(OTSubscriberKit*)subscriber audioLevelUpdated:(float)audioLevel{
+    NSMutableDictionary* data = [[NSMutableDictionary alloc] init];
+    [data setObject: @(audioLevel) forKey: @"audioLevel"];
+    [self triggerJSEvent: @"subscriberEvents" withType: @"audioLevelUpdated" withData: data];
+}
+
+
+#pragma mark On property changed
+- (void)observeValueForKeyPath:(NSString*)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
+    if ([keyPath isEqual:@"videoDimensions"]) {
+        NSMutableDictionary* newValue = [[NSMutableDictionary alloc] init];
+        NSMutableDictionary* oldValue = [[NSMutableDictionary alloc] init];
+        if([change objectForKey:NSKeyValueChangeOldKey] != [NSNull null]) {
+            CGSize* videoDimensions = (__bridge CGSize*) [change objectForKey:NSKeyValueChangeOldKey];
+            [oldValue setObject: @((NSInteger) (floor(videoDimensions->width))) forKey:@"width"];
+            [oldValue setObject: @((NSInteger) (floor(videoDimensions->height))) forKey:@"height"];
+        }
+        if([change objectForKey:NSKeyValueChangeNewKey] != [NSNull null]) {
+            CGSize* videoDimensions = (__bridge CGSize*) [change objectForKey:NSKeyValueChangeNewKey];
+            [newValue setObject: @((NSInteger) (floor(videoDimensions->width))) forKey:@"width"];
+            [newValue setObject: @((NSInteger) (floor(videoDimensions->height))) forKey:@"height"];
+        }
+        [self onStreamPropertyChanged: keyPath newValue: newValue oldValue: oldValue stream: (__bridge OTStream*) context];
+    }
+    if ([keyPath isEqual:@"hasAudio"] || [keyPath isEqual:@"hasVideo"]) {
+        bool newValue = NO;
+        bool oldValue = NO;
+        if([change objectForKey:NSKeyValueChangeOldKey] != [NSNull null]) {
+            oldValue = [change objectForKey:NSKeyValueChangeOldKey];
+        }
+        if([change objectForKey:NSKeyValueChangeNewKey] != [NSNull null]) {
+            newValue = [change objectForKey:NSKeyValueChangeNewKey];
+        }
+        [self onStreamPropertyChanged: keyPath newValue: @(newValue) oldValue: @(oldValue) stream: (__bridge OTStream*) context];
+    }
+}
+- (void)onStreamPropertyChanged:(NSString*)changedProperty newValue:(id)newValue oldValue:(id)oldValue stream:(OTStream*)stream{
+    NSMutableDictionary* eventData = [[NSMutableDictionary alloc] init];
+    NSMutableDictionary* streamData = [self createDataFromStream: stream];
+
+    [eventData setObject: changedProperty forKey:@"changedProperty"];
+    [eventData setObject: newValue forKey:@"newValue"];
+    [eventData setObject: oldValue forKey:@"oldValue"];
+    [eventData setObject: streamData forKey:@"stream"];
+
+    [self triggerJSEvent: @"sessionEvents" withType: @"streamPropertyChanged" withData: eventData];
+}
 
 #pragma mark Session Delegates
 - (void)sessionDidConnect:(OTSession*)session{
@@ -460,8 +535,7 @@
 }
 
 
-- (void)session:(OTSession *)session connectionCreated:(OTConnection *)connection
-{
+- (void)session:(OTSession *)session connectionCreated:(OTConnection *)connection{
     [connectionDictionary setObject: connection forKey: connection.connectionId];
     NSMutableDictionary* data = [[NSMutableDictionary alloc] init];
     NSMutableDictionary* connectionData = [self createDataFromConnection: connection];
@@ -469,18 +543,28 @@
     [self triggerJSEvent: @"sessionEvents" withType: @"connectionCreated" withData: data];
 }
 
-- (void)session:(OTSession *)session connectionDestroyed:(OTConnection *)connection
-{
+- (void)session:(OTSession *)session connectionDestroyed:(OTConnection *)connection{
     [connectionDictionary removeObjectForKey: connection.connectionId];
     NSMutableDictionary* data = [[NSMutableDictionary alloc] init];
     NSMutableDictionary* connectionData = [self createDataFromConnection: connection];
     [data setObject: connectionData forKey: @"connection"];
     [self triggerJSEvent: @"sessionEvents" withType: @"connectionDestroyed" withData: data];
 }
+- (void)sessionDidReconnect:(OTSession*)session {
+    NSLog(@"iOS Session reconnected");
+    [self triggerJSEvent: @"sessionEvents" withType: @"sessionReconnected" withData: nil];
+}
+- (void)sessionDidBeginReconnecting:(OTSession*)session {
+    NSLog(@"iOS Session reconnecting");
+    [self triggerJSEvent: @"sessionEvents" withType: @"sessionReconnecting" withData: nil];
+}
+
+
 - (void)session:(OTSession*)mySession streamCreated:(OTStream*)stream{
     NSLog(@"iOS Received Stream");
+    [self addObserversToStream: stream];
     [streamDictionary setObject:stream forKey:stream.streamId];
-    [self triggerStreamCreated: stream withEventType: @"sessionEvents"];
+    [self triggerStreamEvent: stream withEventType: @"sessionEvents" subEvent: @"streamCreated"];
 }
 - (void)session:(OTSession*)session streamDestroyed:(OTStream *)stream{
     NSLog(@"iOS Drop Stream");
@@ -488,11 +572,12 @@
     OTSubscriber * subscriber = [subscriberDictionary objectForKey:stream.streamId];
     if (subscriber) {
         NSLog(@"subscriber found, unsubscribing");
+        [self removeObserversFromStream: stream];
         [_session unsubscribe:subscriber error:nil];
         [subscriber.view removeFromSuperview];
         [subscriberDictionary removeObjectForKey:stream.streamId];
     }
-    [self triggerStreamDestroyed: stream withEventType: @"sessionEvents"];
+    [self triggerStreamEvent: stream withEventType: @"sessionEvents" subEvent: @"streamDestroyed"];
 }
 - (void)session:(OTSession*)session didFailWithError:(OTError*)error {
     NSLog(@"Error: Session did not Connect");
@@ -538,15 +623,27 @@
         [self triggerJSEvent: @"sessionEvents" withType: @"signalReceived" withData: data];
     }
 }
-
+- (void)session:(OTSession*)session archiveStartedWithId:(nonnull NSString *)archiveId name:(NSString *_Nullable)name{
+    NSMutableDictionary* data = [[NSMutableDictionary alloc] init];
+    [data setObject: archiveId forKey: @"id"];
+    [data setObject: name forKey: @"name"];
+    [self triggerJSEvent: @"sessionEvents" withType: @"archiveStarted" withData: data];
+}
+- (void)session:(OTSession*)session archiveStoppedWithId:(nonnull NSString *)archiveId{
+    NSMutableDictionary* data = [[NSMutableDictionary alloc] init];
+    [data setObject: archiveId forKey: @"id"];
+    [self triggerJSEvent: @"sessionEvents" withType: @"archiveStopped" withData: data];
+}
 
 #pragma mark Publisher Delegates
 - (void)publisher:(OTPublisherKit *)publisher streamCreated:(OTStream *)stream{
+    [self addObserversToStream: stream];
     [streamDictionary setObject:stream forKey:stream.streamId];
-    [self triggerStreamCreated: stream withEventType: @"publisherEvents"];
+    [self triggerStreamEvent: stream withEventType: @"publisherEvents" subEvent: @"streamCreated"];
 }
 - (void)publisher:(OTPublisherKit*)publisher streamDestroyed:(OTStream *)stream{
-    [self triggerStreamDestroyed: stream withEventType: @"publisherEvents"];
+    [streamDictionary removeObjectForKey: stream.streamId];
+    [self triggerStreamEvent: stream withEventType: @"publisherEvents" subEvent: @"streamDestroyed"];
 }
 - (void)publisher:(OTPublisher*)publisher didFailWithError:(NSError*) error {
     NSLog(@"iOS Publisher didFailWithError");
@@ -557,22 +654,46 @@
     [pluginResult setKeepCallbackAsBool:YES];
     [self.commandDelegate sendPluginResult:pluginResult callbackId:self.exceptionId];
 }
+- (void)publisher:(OTPublisherKit*)publisher audioLevelUpdated:(float)audioLevel{
+    NSMutableDictionary* data = [[NSMutableDictionary alloc] init];
+    [data setObject: @(audioLevel) forKey: @"audioLevel"];
+    [self triggerJSEvent: @"publisherEvents" withType: @"audioLevelUpdated" withData: data];
+}
+
+
 
 #pragma mark -
 #pragma mark Helper Methods
-- (void)triggerStreamCreated: (OTStream*) stream withEventType: (NSString*) eventType{
-    NSMutableDictionary* data = [[NSMutableDictionary alloc] init];
-    NSMutableDictionary* streamData = [self createDataFromStream: stream];
-    [data setObject: streamData forKey: @"stream"];
-    [self triggerJSEvent: eventType withType: @"streamCreated" withData: data];
+- (NSString*)validateReason: (OTSubscriberVideoEventReason)reason{
+    NSString* reasonData = @"";
+    if(reason == OTSubscriberVideoEventPublisherPropertyChanged) {
+        reasonData = @"publishVideo";
+    } else if(reason == OTSubscriberVideoEventSubscriberPropertyChanged) {
+        reasonData = @"subscribeToVideo";
+    } else if(reason == OTSubscriberVideoEventQualityChanged) {
+        reasonData = @"quality";
+    }
+    return reasonData;
 }
-- (void)triggerStreamDestroyed: (OTStream*) stream withEventType: (NSString*) eventType{
-    [streamDictionary removeObjectForKey: stream.streamId];
-
+- (void)addObserversToStream: (OTStream*) stream{
+    // Add observers
+    [stream addObserver:self forKeyPath:@"hasAudio" options:(NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld) context:(__bridge void * _Nullable)(stream)];
+    [stream addObserver:self forKeyPath:@"hasVideo" options:(NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld) context:(__bridge void * _Nullable)(stream)];
+    [stream addObserver:self forKeyPath:@"videoDimensions" options:(NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld) context:(__bridge void * _Nullable)(stream)];
+    [stream addObserver:self forKeyPath:@"videoType" options:(NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld) context:(__bridge void * _Nullable)(stream)];
+}
+- (void)removeObserversFromStream: (OTStream*) stream{
+    // Removing observers
+    [stream removeObserver:self forKeyPath:@"hasAudio"];
+    [stream removeObserver:self forKeyPath:@"hasVideo"];
+    [stream removeObserver:self forKeyPath:@"videoDimensions"];
+    [stream removeObserver:self forKeyPath:@"videoType"];
+}
+- (void)triggerStreamEvent: (OTStream*) stream withEventType: (NSString*) eventType subEvent: (NSString*) subEvent{
     NSMutableDictionary* data = [[NSMutableDictionary alloc] init];
     NSMutableDictionary* streamData = [self createDataFromStream: stream];
     [data setObject: streamData forKey: @"stream"];
-    [self triggerJSEvent: eventType withType: @"streamDestroyed" withData: data];
+    [self triggerJSEvent: eventType withType: subEvent withData: data];
 }
 - (NSMutableDictionary*)createDataFromConnection:(OTConnection*)connection{
     NSLog(@"iOS creating data from stream: %@", connection);
@@ -586,7 +707,8 @@
 }
 - (NSMutableDictionary*)createDataFromStream:(OTStream*)stream{
     NSMutableDictionary* streamData = [[NSMutableDictionary alloc] init];
-    [streamData setObject: stream.connection.connectionId forKey: @"connectionId" ];
+    [streamData setObject: stream.connection.connectionId forKey: @"connectionId" ]; // Backwards compatibility.
+    [streamData setObject: [self createDataFromConnection: stream.connection] forKey: @"connection"];
     [streamData setObject: [NSString stringWithFormat:@"%.0f", [stream.creationTime timeIntervalSince1970]] forKey: @"creationTime" ];
     [streamData setObject: [NSNumber numberWithInt:-999] forKey: @"fps" ];
     [streamData setObject: [NSNumber numberWithBool: stream.hasAudio] forKey: @"hasAudio" ];
@@ -595,11 +717,12 @@
     [streamData setObject: stream.streamId forKey: @"streamId" ];
     return streamData;
 }
-- (void)triggerJSEvent:(NSString*)event withType:(NSString*)type withData:(NSMutableDictionary*) data{
+- (void)triggerJSEvent:(NSString*)event withType:(NSString*)type withData:(id) data{
     NSMutableDictionary* message = [[NSMutableDictionary alloc] init];
     [message setObject:type forKey:@"eventType"];
-    [message setObject:data forKey:@"data"];
-
+    if (data) {
+        [message setObject:data forKey:@"data"];
+    }
     CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:message];
     [pluginResult setKeepCallbackAsBool:YES];
 

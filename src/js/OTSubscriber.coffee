@@ -19,14 +19,13 @@ class TBSubscriber
     return ""
   getStyle: ->
     return {}
-  off: (event, handler) ->
-    return @
-  on: (event, handler) ->
-# todo - videoDisabled
-    return @
   setAudioVolume:(value) ->
     return @
   setStyle: (style, value) ->
+    return @
+  off: (event, handler) ->
+    return @
+  on: (event, handler) ->
     return @
   subscribeToAudio: (value) ->
     return @
@@ -70,7 +69,49 @@ class TBSubscriber
     position = getPosition(@element)
     ratios = TBGetScreenRatios()
     pdebug "final subscriber position", position
+    OT.getHelper().eventing(@)
     Cordova.exec(TBSuccess, TBError, OTPlugin, "subscribe", [stream.streamId, position.top, position.left, width, height, zIndex, subscribeToAudio, subscribeToVideo, ratios.widthRatio, ratios.heightRatio] )
+    Cordova.exec(@eventReceived, TBSuccess, OTPlugin, "addEvent", ["subscriberEvents"] )
+
+  eventReceived: (response) =>
+    pdebug "subscriber event received", response
+    @[response.eventType](response.data)
+  connected: (event) =>
+    streamEvent = new TBEvent("connected")
+    streamEvent.stream = event.streamId
+    @dispatchEvent(streamEvent)
+    return @
+  disconnected: (event) =>
+    streamEvent = new TBEvent("disconnected")
+    streamEvent.stream = event.streamId
+    @dispatchEvent(streamEvent)
+    return @
+  videoDataReceived: (event) =>
+    streamEvent = new TBEvent("videoDataReceived")
+    @dispatchEvent(streamEvent)
+    return @
+  videoDisabled: (event) =>
+    streamEvent = new TBEvent("videoDisabled")
+    streamEvent.reason = event.reason
+    @dispatchEvent(streamEvent)
+    return @
+  videoDisabledWarning: (event) =>
+    streamEvent = new TBEvent("videoDisabledWarning")
+    @dispatchEvent(streamEvent)
+    return @
+  videoDisabledWarningLifted: (event) =>
+    streamEvent = new TBEvent("videoDisabledWarningLifted")
+    @dispatchEvent(streamEvent)
+    return @
+  videoEnabled: (event) =>
+    streamEvent = new TBEvent("videoEnabled")
+    streamEvent.reason = event.reason
+    @dispatchEvent(streamEvent)
+    return @
+  audioLevelUpdated: (event) =>
+    streamEvent = new TBEvent("audioLevelUpdated")
+    streamEvent.audioLevel = event.audioLevel
+    return @
 
   # deprecating
   removeEventListener: (event, listener) ->
