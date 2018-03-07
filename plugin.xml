@@ -84,10 +84,6 @@
           <param name="ios-package" value="OpenTokPlugin"/>
           <param name="onload" value="true"/>
         </feature>
-        <feature name="CDVWKWebViewEngine">
-          <param name="ios-package" value="CDVWKWebViewEngine" />
-        </feature>
-        <preference name="CordovaWebViewEngine" value="CDVWKWebViewEngine" />
       </config-file>
 
       <!-- add required entries into plist file -->
