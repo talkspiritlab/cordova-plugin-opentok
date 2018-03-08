@@ -59,6 +59,6 @@ window.addEventListener "orientationchange", (->
   ), 1000
   return
 ), false
-document.addEventListener "ondeviceready", (->
+document.addEventListener "deviceready", (->
   Cordova.exec(TBSuccess, TBError, OTPlugin, "hasStatusBarPlugin", [window.hasOwnProperty("StatusBar")] )
 ), false
