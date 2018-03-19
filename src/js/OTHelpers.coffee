@@ -34,8 +34,14 @@ replaceWithVideoStream = (element, streamId, properties) ->
   newElement.setAttribute( "class", "OT_root #{typeClass}" )
   newElement.setAttribute( "data-streamid", streamId )
   newElement.setAttribute( "data-insertMode", properties.insertMode )
-  newElement.style.width = properties.width+"px"
-  newElement.style.height = properties.height+"px"
+  if (typeof properties.width is 'string')
+    newElement.style.width = properties.width
+  else
+    newElement.style.width = properties.width+"px"
+  if (typeof properties.height is 'string')
+    newElement.style.height = properties.height
+  else
+    newElement.style.height = properties.height+"px"
   newElement.style.overflow = "hidden"
   newElement.style['background-color'] = "#000000"
   streamElements[ streamId ] = newElement
@@ -81,13 +87,15 @@ TBUpdateObjects = ()->
   objects = document.getElementsByClassName('OT_root')
 
   ratios = TBGetScreenRatios()
-
   for e in objects
-    console.log("JS: Object updated")
     streamId = e.dataset.streamid
-    console.log("JS sessionId: " + streamId )
     position = getPosition(e)
-    Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio] )
+
+    # If not a TBPosition yet set, or new position not equals to the old one. Update views.
+    if !e.TBPosition || position.top != e.TBPosition.top || position.left != e.TBPosition.left || position.width != e.TBPosition.width || position.height != e.TBPosition.height
+      console.log("JS: Object updated with sessionId " + streamId + " updated");
+      e.TBPosition = position;
+      Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio]);
   return
 TBGenerateDomHelper = ->
   domId = "PubSub" + Date.now()
@@ -99,7 +107,6 @@ TBGenerateDomHelper = ->
 TBGetZIndex = (ele) ->
   while( ele? )
     val = document.defaultView.getComputedStyle(ele,null).getPropertyValue('z-index')
-    console.log val
     if ( parseInt(val) )
       return val
     ele = ele.offsetParent
@@ -129,6 +136,79 @@ OTReplacePublisher = ()->
         element.removeChild childElement
         break
     return
+
+OTObserveVideoContainer = (() ->
+  videoContainerObserver = new MutationObserver((mutations) ->
+    for mutation in mutations
+      if mutation.attributeName == 'style' || mutation.attributeName == 'class'
+        TBUpdateObjects();
+  )
+  return (videoContainer) ->
+    # If already observed, just update, else observe.
+    if(videoContainer._OTObserved)
+      TBUpdateObjects(videoContainer)
+    else
+      videoContainer._OTObserved = true;
+      videoContainerObserver.observe(videoContainer, {
+        # Set to true if additions and removals of the target node's child elements (including text nodes) are to be observed.
+        childList: false
+        # Set to true if mutations to target's attributes are to be observed.
+        attributes: true
+        # Set to true if mutations to target's data are to be observed.
+        characterData: false
+        # Set to true if mutations to not just target, but also target's descendants are to be observed.
+        subtree: true
+        # Set to true if attributes is set to true and target's attribute value before the mutation needs to be recorded.
+        attributeOldValue: false
+        # Set to true if characterData is set to true and target's data before the mutation needs to be recorded.
+        characterDataOldValue: false
+        # Set to an array of attribute local names (without namespace) if not all attribute mutations need to be observed.
+        attributeFilter: ['style', 'class']
+      })
+)()
+OTDomObserver = new MutationObserver((mutations) ->
+  getVideoContainer = (node) ->
+    if typeof node.querySelector != 'function'
+      return
+
+    videoElement = node.querySelector('video')
+    if videoElement
+      while (videoElement = videoElement.parentNode) && !videoElement.hasAttribute('data-streamid')
+        continue
+      return videoElement
+    return false
+
+  checkNewNode = (node) ->
+    videoContainer = getVideoContainer(node)
+    if videoContainer
+      OTObserveVideoContainer(videoContainer)
+
+  checkRemovedNode = (node) ->
+    # Stand-in, if we want to trigger things in the future(like emitting events).
+    return
+
+  for mutation in mutations
+    # Check if its attributes that have changed(including children).
+    if mutation.type == 'attributes'
+      videoContainer = getVideoContainer(mutation.target)
+      if videoContainer
+        TBUpdateObjects()
+      continue
+
+    # Check if there has been addition or deletion of nodes.
+    if mutation.type != 'childList'
+      continue
+
+    # Check added nodes.
+    for node in mutation.addedNodes
+      checkNewNode(node)
+
+    # Check removed nodes.
+    for node in mutation.removedNodes
+      checkRemovedNode(node)
+
+  return
+)
 
 pdebug = (msg, data) ->
   console.log "JS Lib: #{msg} - ", data
