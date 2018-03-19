@@ -162,15 +162,18 @@ class TBSession
       pdebug "No method found for EventType: '" + response.eventType + "'";
   connectionCreated: (event) =>
     connection = new TBConnection( event.connection )
-    connectionEvent = new TBEvent( {connection: connection } )
+    connectionEvent = new TBEvent("connectionCreated")
+    connectionEvent.connection = connection
     @connections[connection.connectionId] = connection
-    @trigger("connectionCreated", connectionEvent)
+    @dispatchEvent(connectionEvent)
     return @
   connectionDestroyed: (event) =>
     pdebug "connectionDestroyedHandler", event
     connection = @connections[ event.connection.connectionId ]
-    connectionEvent = new TBEvent( {connection: connection, reason: "clientDisconnected" } )
-    @trigger("connectionDestroyed", connectionEvent)
+    connectionEvent = new TBEvent("connectionDestroyed")
+    connectionEvent.connection = connection
+    connectionEvent.reason = "clientDisconnected"
+    @dispatchEvent(connectionEvent)
     delete( @connections[ connection.connectionId] )
     return @
   sessionConnected: (event) =>
@@ -191,7 +194,7 @@ class TBSession
       # Set to an array of attribute local names (without namespace) if not all attribute mutations need to be observed.
       attributeFilter: ['style', 'class']
     })
-    @trigger("sessionConnected")
+    @dispatchEvent(new TBEvent("sessionConnected"))
     @connection = new TBConnection( event.connection )
     @connections[event.connection.connectionId] = @connection
     event = null
@@ -200,22 +203,35 @@ class TBSession
     pdebug "sessionDisconnected event", event
     OTDomObserver.disconnect()
     @alreadyPublishing = false
-    sessionDisconnectedEvent = new TBEvent( { reason: event.reason } )
-    @trigger("sessionDisconnected", sessionDisconnectedEvent)
+    sessionDisconnectedEvent = new TBEvent("sessionDisconnected")
+    sessionDisconnectedEvent.reason = event.reason
+    @dispatchEvent(sessionDisconnectedEvent)
     @cleanUpDom()
+    return @
+  sessionReconnected: (event) =>
+    sessionEvent = new TBEvent("sessionReconnected")
+    @dispatchEvent(sessionEvent)
+    return @
+  sessionReconnecting: (event) =>
+    sessionEvent = new TBEvent("sessionReconnecting")
+    @dispatchEvent(sessionEvent)
     return @
   streamCreated: (event) =>
     pdebug "streamCreatedHandler", event
     stream = new TBStream( event.stream, @connections[event.stream.connectionId] )
     @streams[ stream.streamId ] = stream
-    streamEvent = new TBEvent( {stream: stream } )
-    @trigger("streamCreated", streamEvent)
+    streamEvent = new TBEvent("streamCreated")
+    streamEvent.stream = stream
+    #streamEvent = new TBEvent( {stream: stream } )
+    @dispatchEvent(streamEvent)
     return @
   streamDestroyed: (event) =>
     pdebug "streamDestroyed event", event
     stream = @streams[event.stream.streamId]
-    streamEvent = new TBEvent( {stream: stream, reason: "clientDisconnected" } )
-    @trigger("streamDestroyed", streamEvent)
+    streamEvent = new TBEvent("streamDestroyed")
+    streamEvent.stream = stream
+    streamEvent.reason = "clientDisconnected"
+    @dispatchEvent(streamEvent)
     # remove stream DOM
     if(stream)
       element = streamElements[ stream.streamId ]
@@ -223,6 +239,14 @@ class TBSession
         @resetElement(element)
         delete( streamElements[ stream.streamId ] )
       delete( @streams[ stream.streamId ] )
+    return @
+  streamPropertyChanged: (event) ->
+    streamEvent = new TBEvent("streamPropertyChanged")
+    streamEvent.stream = event.stream
+    streamEvent.changedProperty = event.changedProperty
+    streamEvent.oldValue = event.oldValue
+    streamEvent.newValue = event.newValue
+    @dispatchEvent(streamEvent)
     return @
   subscribedToStream: (event) =>
     streamId = event.streamId
@@ -238,9 +262,27 @@ class TBSession
       return
   signalReceived: (event) =>
     pdebug "signalReceived event", event
-    streamEvent = new TBEvent( {type: event.type, data: event.data, from: @connections[event.connectionId] } )
-    @trigger("signal", streamEvent)
-    @trigger("signal:#{event.type}", streamEvent)
+    streamEvent = new TBEvent("signal")
+    streamEvent.type = event.type
+    streamEvent.data = event.data
+    streamEvent.from = @connections[event.connectionId]
+    @dispatchEvent(streamEvent)
+
+    streamEvent = new TBEvent("signal:#{event.type}")
+    streamEvent.type = event.type
+    streamEvent.data = event.data
+    streamEvent.from = @connections[event.connectionId]
+    @dispatchEvent(streamEvent)
+  archiveStarted: (event) ->
+    streamEvent = new TBEvent("archiveStarted")
+    streamEvent.id = event.id
+    streamEvent.name = event.name
+    @dispatch(streamEvent)
+  archiveStopped: (event) ->
+    streamEvent = new TBEvent("archiveStopped")
+    streamEvent.id = event.id
+    @dispatch(streamEvent)
+
 
   # deprecating
   addEventListener: (event, handler) -> # deprecating soon

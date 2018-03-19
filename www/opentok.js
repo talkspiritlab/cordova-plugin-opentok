@@ -136,23 +136,26 @@ var TBEvent,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
 TBEvent = (function() {
-  function TBEvent(prop) {
+  function TBEvent(type, cancelable) {
     this.preventDefault = __bind(this.preventDefault, this);
     this.isDefaultPrevented = __bind(this.isDefaultPrevented, this);
-    var k, v;
-    for (k in prop) {
-      v = prop[k];
-      this[k] = v;
-    }
-    this.defaultPrevented = false;
+    this.type = type;
+    this.cancelable = cancelable !== void 0 ? cancelable : true;
+    this._defaultPrevented = false;
     return;
   }
 
   TBEvent.prototype.isDefaultPrevented = function() {
-    return this.defaultValue;
+    return this._defaultPrevented;
   };
 
-  TBEvent.prototype.preventDefault = function() {};
+  TBEvent.prototype.preventDefault = function() {
+    if (this.cancelable) {
+      this._defaultPrevented = true;
+    } else {
+      console.log("Event.preventDefault: Trying to prevent default on an Event that isn't cancelable");
+    }
+  };
 
   return TBEvent;
 
@@ -499,21 +502,19 @@ TBPublisher = (function() {
     pdebug("publisher streamCreatedHandler", this.session);
     pdebug("publisher streamCreatedHandler", this.session.sessionConnection);
     this.stream = new TBStream(event.stream, this.session.sessionConnection);
-    streamEvent = new TBEvent({
-      stream: this.stream
-    });
-    this.trigger("streamCreated", streamEvent);
+    streamEvent = new TBEvent("streamCreated");
+    streamEvent.stream = this.stream;
+    this.dispatchEvent(streamEvent);
     return this;
   };
 
   TBPublisher.prototype.streamDestroyed = function(event) {
     var streamEvent;
     pdebug("publisher streamDestroyed event", event);
-    streamEvent = new TBEvent({
-      stream: this.stream,
-      reason: "clientDisconnected"
-    });
-    this.trigger("streamDestroyed", streamEvent);
+    streamEvent = new TBEvent("streamDestroyed");
+    streamEvent.stream = this.stream;
+    streamEvent.reason = "clientDisconnected";
+    this.dispatchEvent(streamEvent);
     return this;
   };
 
@@ -555,6 +556,13 @@ TBPublisher = (function() {
   };
 
   TBPublisher.prototype.setStyle = function(style, value) {
+    return this;
+  };
+
+  TBPublisher.prototype.audioLevelUpdated = function(event) {
+    var streamEvent;
+    streamEvent = new TBEvent("audioLevelUpdated");
+    streamEvent.audioLevel = event.audioLevel;
     return this;
   };
 
@@ -777,6 +785,8 @@ TBSession = (function() {
     this.subscribedToStream = __bind(this.subscribedToStream, this);
     this.streamDestroyed = __bind(this.streamDestroyed, this);
     this.streamCreated = __bind(this.streamCreated, this);
+    this.sessionReconnecting = __bind(this.sessionReconnecting, this);
+    this.sessionReconnected = __bind(this.sessionReconnected, this);
     this.sessionDisconnected = __bind(this.sessionDisconnected, this);
     this.sessionConnected = __bind(this.sessionConnected, this);
     this.connectionDestroyed = __bind(this.connectionDestroyed, this);
@@ -842,11 +852,10 @@ TBSession = (function() {
   TBSession.prototype.connectionCreated = function(event) {
     var connection, connectionEvent;
     connection = new TBConnection(event.connection);
-    connectionEvent = new TBEvent({
-      connection: connection
-    });
+    connectionEvent = new TBEvent("connectionCreated");
+    connectionEvent.connection = connection;
     this.connections[connection.connectionId] = connection;
-    this.trigger("connectionCreated", connectionEvent);
+    this.dispatchEvent(connectionEvent);
     return this;
   };
 
@@ -854,11 +863,10 @@ TBSession = (function() {
     var connection, connectionEvent;
     pdebug("connectionDestroyedHandler", event);
     connection = this.connections[event.connection.connectionId];
-    connectionEvent = new TBEvent({
-      connection: connection,
-      reason: "clientDisconnected"
-    });
-    this.trigger("connectionDestroyed", connectionEvent);
+    connectionEvent = new TBEvent("connectionDestroyed");
+    connectionEvent.connection = connection;
+    connectionEvent.reason = "clientDisconnected";
+    this.dispatchEvent(connectionEvent);
     delete this.connections[connection.connectionId];
     return this;
   };
@@ -874,7 +882,7 @@ TBSession = (function() {
       characterDataOldValue: false,
       attributeFilter: ['style', 'class']
     });
-    this.trigger("sessionConnected");
+    this.dispatchEvent(new TBEvent("sessionConnected"));
     this.connection = new TBConnection(event.connection);
     this.connections[event.connection.connectionId] = this.connection;
     event = null;
@@ -886,11 +894,24 @@ TBSession = (function() {
     pdebug("sessionDisconnected event", event);
     OTDomObserver.disconnect();
     this.alreadyPublishing = false;
-    sessionDisconnectedEvent = new TBEvent({
-      reason: event.reason
-    });
-    this.trigger("sessionDisconnected", sessionDisconnectedEvent);
+    sessionDisconnectedEvent = new TBEvent("sessionDisconnected");
+    sessionDisconnectedEvent.reason = event.reason;
+    this.dispatchEvent(sessionDisconnectedEvent);
     this.cleanUpDom();
+    return this;
+  };
+
+  TBSession.prototype.sessionReconnected = function(event) {
+    var sessionEvent;
+    sessionEvent = new TBEvent("sessionReconnected");
+    this.dispatchEvent(sessionEvent);
+    return this;
+  };
+
+  TBSession.prototype.sessionReconnecting = function(event) {
+    var sessionEvent;
+    sessionEvent = new TBEvent("sessionReconnecting");
+    this.dispatchEvent(sessionEvent);
     return this;
   };
 
@@ -899,10 +920,9 @@ TBSession = (function() {
     pdebug("streamCreatedHandler", event);
     stream = new TBStream(event.stream, this.connections[event.stream.connectionId]);
     this.streams[stream.streamId] = stream;
-    streamEvent = new TBEvent({
-      stream: stream
-    });
-    this.trigger("streamCreated", streamEvent);
+    streamEvent = new TBEvent("streamCreated");
+    streamEvent.stream = stream;
+    this.dispatchEvent(streamEvent);
     return this;
   };
 
@@ -910,11 +930,10 @@ TBSession = (function() {
     var element, stream, streamEvent;
     pdebug("streamDestroyed event", event);
     stream = this.streams[event.stream.streamId];
-    streamEvent = new TBEvent({
-      stream: stream,
-      reason: "clientDisconnected"
-    });
-    this.trigger("streamDestroyed", streamEvent);
+    streamEvent = new TBEvent("streamDestroyed");
+    streamEvent.stream = stream;
+    streamEvent.reason = "clientDisconnected";
+    this.dispatchEvent(streamEvent);
     if (stream) {
       element = streamElements[stream.streamId];
       if (element) {
@@ -923,6 +942,17 @@ TBSession = (function() {
       }
       delete this.streams[stream.streamId];
     }
+    return this;
+  };
+
+  TBSession.prototype.streamPropertyChanged = function(event) {
+    var streamEvent;
+    streamEvent = new TBEvent("streamPropertyChanged");
+    streamEvent.stream = event.stream;
+    streamEvent.changedProperty = event.changedProperty;
+    streamEvent.oldValue = event.oldValue;
+    streamEvent.newValue = event.newValue;
+    this.dispatchEvent(streamEvent);
     return this;
   };
 
@@ -944,13 +974,31 @@ TBSession = (function() {
   TBSession.prototype.signalReceived = function(event) {
     var streamEvent;
     pdebug("signalReceived event", event);
-    streamEvent = new TBEvent({
-      type: event.type,
-      data: event.data,
-      from: this.connections[event.connectionId]
-    });
-    this.trigger("signal", streamEvent);
-    return this.trigger("signal:" + event.type, streamEvent);
+    streamEvent = new TBEvent("signal");
+    streamEvent.type = event.type;
+    streamEvent.data = event.data;
+    streamEvent.from = this.connections[event.connectionId];
+    this.dispatchEvent(streamEvent);
+    streamEvent = new TBEvent("signal:" + event.type);
+    streamEvent.type = event.type;
+    streamEvent.data = event.data;
+    streamEvent.from = this.connections[event.connectionId];
+    return this.dispatchEvent(streamEvent);
+  };
+
+  TBSession.prototype.archiveStarted = function(event) {
+    var streamEvent;
+    streamEvent = new TBEvent("archiveStarted");
+    streamEvent.id = event.id;
+    streamEvent.name = event.name;
+    return this.dispatch(streamEvent);
+  };
+
+  TBSession.prototype.archiveStopped = function(event) {
+    var streamEvent;
+    streamEvent = new TBEvent("archiveStopped");
+    streamEvent.id = event.id;
+    return this.dispatch(streamEvent);
   };
 
   TBSession.prototype.addEventListener = function(event, handler) {
@@ -987,7 +1035,8 @@ TBStream = (function() {
 
 })();
 
-var TBSubscriber;
+var TBSubscriber,
+  __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
 TBSubscriber = (function() {
   TBSubscriber.prototype.getAudioVolume = function() {
@@ -1002,19 +1051,19 @@ TBSubscriber = (function() {
     return {};
   };
 
-  TBSubscriber.prototype.off = function(event, handler) {
-    return this;
-  };
-
-  TBSubscriber.prototype.on = function(event, handler) {
-    return this;
-  };
-
   TBSubscriber.prototype.setAudioVolume = function(value) {
     return this;
   };
 
   TBSubscriber.prototype.setStyle = function(style, value) {
+    return this;
+  };
+
+  TBSubscriber.prototype.off = function(event, handler) {
+    return this;
+  };
+
+  TBSubscriber.prototype.on = function(event, handler) {
     return this;
   };
 
@@ -1027,6 +1076,15 @@ TBSubscriber = (function() {
   };
 
   function TBSubscriber(stream, divObject, properties) {
+    this.audioLevelUpdated = __bind(this.audioLevelUpdated, this);
+    this.videoEnabled = __bind(this.videoEnabled, this);
+    this.videoDisabledWarningLifted = __bind(this.videoDisabledWarningLifted, this);
+    this.videoDisabledWarning = __bind(this.videoDisabledWarning, this);
+    this.videoDisabled = __bind(this.videoDisabled, this);
+    this.videoDataReceived = __bind(this.videoDataReceived, this);
+    this.disconnected = __bind(this.disconnected, this);
+    this.connected = __bind(this.connected, this);
+    this.eventReceived = __bind(this.eventReceived, this);
     var divPosition, height, insertMode, name, obj, position, ratios, subscribeToAudio, subscribeToVideo, width, zIndex, _ref, _ref1;
     if (divObject instanceof Element) {
       this.element = divObject;
@@ -1071,8 +1129,75 @@ TBSubscriber = (function() {
     position = getPosition(this.element);
     ratios = TBGetScreenRatios();
     pdebug("final subscriber position", position);
+    OT.getHelper().eventing(this);
     Cordova.exec(TBSuccess, TBError, OTPlugin, "subscribe", [stream.streamId, position.top, position.left, width, height, zIndex, subscribeToAudio, subscribeToVideo, ratios.widthRatio, ratios.heightRatio]);
+    Cordova.exec(this.eventReceived, TBSuccess, OTPlugin, "addEvent", ["subscriberEvents"]);
   }
+
+  TBSubscriber.prototype.eventReceived = function(response) {
+    pdebug("subscriber event received", response);
+    return this[response.eventType](response.data);
+  };
+
+  TBSubscriber.prototype.connected = function(event) {
+    var streamEvent;
+    streamEvent = new TBEvent("connected");
+    streamEvent.stream = event.streamId;
+    this.dispatchEvent(streamEvent);
+    return this;
+  };
+
+  TBSubscriber.prototype.disconnected = function(event) {
+    var streamEvent;
+    streamEvent = new TBEvent("disconnected");
+    streamEvent.stream = event.streamId;
+    this.dispatchEvent(streamEvent);
+    return this;
+  };
+
+  TBSubscriber.prototype.videoDataReceived = function(event) {
+    var streamEvent;
+    streamEvent = new TBEvent("videoDataReceived");
+    this.dispatchEvent(streamEvent);
+    return this;
+  };
+
+  TBSubscriber.prototype.videoDisabled = function(event) {
+    var streamEvent;
+    streamEvent = new TBEvent("videoDisabled");
+    streamEvent.reason = event.reason;
+    this.dispatchEvent(streamEvent);
+    return this;
+  };
+
+  TBSubscriber.prototype.videoDisabledWarning = function(event) {
+    var streamEvent;
+    streamEvent = new TBEvent("videoDisabledWarning");
+    this.dispatchEvent(streamEvent);
+    return this;
+  };
+
+  TBSubscriber.prototype.videoDisabledWarningLifted = function(event) {
+    var streamEvent;
+    streamEvent = new TBEvent("videoDisabledWarningLifted");
+    this.dispatchEvent(streamEvent);
+    return this;
+  };
+
+  TBSubscriber.prototype.videoEnabled = function(event) {
+    var streamEvent;
+    streamEvent = new TBEvent("videoEnabled");
+    streamEvent.reason = event.reason;
+    this.dispatchEvent(streamEvent);
+    return this;
+  };
+
+  TBSubscriber.prototype.audioLevelUpdated = function(event) {
+    var streamEvent;
+    streamEvent = new TBEvent("audioLevelUpdated");
+    streamEvent.audioLevel = event.audioLevel;
+    return this;
+  };
 
   TBSubscriber.prototype.removeEventListener = function(event, listener) {
     return this;

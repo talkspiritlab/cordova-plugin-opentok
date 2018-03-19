@@ -1,13 +1,14 @@
 class TBEvent
-  constructor: (prop) ->
-    for k,v of prop
-      @[k] = v
-    @defaultPrevented = false
+  constructor: (type, cancelable) ->
+    @type = type
+    @cancelable = if cancelable != undefined then cancelable else true
+    @_defaultPrevented = false
     return
   isDefaultPrevented: =>
-    return @defaultValue
+    return @_defaultPrevented
   preventDefault: =>
-    # todo: implement preventDefault
+    if(@cancelable)
+        @_defaultPrevented = true
+    else
+        console.log("Event.preventDefault: Trying to prevent default on an Event that isn't cancelable")
     return
-
-

@@ -79,13 +79,16 @@ class TBPublisher
     pdebug "publisher streamCreatedHandler", @session
     pdebug "publisher streamCreatedHandler", @session.sessionConnection
     @stream = new TBStream( event.stream, @session.sessionConnection )
-    streamEvent = new TBEvent( {stream: @stream } )
-    @trigger("streamCreated", streamEvent)
+    streamEvent = new TBEvent("streamCreated")
+    streamEvent.stream = @stream
+    @dispatchEvent(streamEvent)
     return @
   streamDestroyed: (event) =>
     pdebug "publisher streamDestroyed event", event
-    streamEvent = new TBEvent( {stream: @stream, reason: "clientDisconnected" } )
-    @trigger("streamDestroyed", streamEvent)
+    streamEvent = new TBEvent("streamDestroyed")
+    streamEvent.stream = @stream
+    streamEvent.reason = "clientDisconnected"
+    @dispatchEvent(streamEvent)
     # remove stream DOM?
     return @
 
@@ -112,6 +115,10 @@ class TBPublisher
     return @
   setStyle: (style, value ) ->
     return @
+  audioLevelUpdated: (event) ->
+    streamEvent = new TBEvent("audioLevelUpdated")
+    streamEvent.audioLevel = event.audioLevel
+    return @ 
 
   publishMedia: (media, state) ->
     if media not in ["publishAudio", "publishVideo"] then return
