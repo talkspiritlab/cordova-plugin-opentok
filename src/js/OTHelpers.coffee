@@ -83,20 +83,30 @@ OTPublisherError = (error) ->
     TBError(error)
 
 TBUpdateObjects = ()->
-  console.log("JS: Objects being updated in TBUpdateObjects")
-  objects = document.getElementsByClassName('OT_root')
+  updateObject = () ->
+    console.log("JS: Objects being updated in TBUpdateObjects")
+    objects = document.getElementsByClassName('OT_root')
 
-  ratios = TBGetScreenRatios()
-  for e in objects
-    streamId = e.dataset.streamid
-    position = getPosition(e)
+    ratios = TBGetScreenRatios()
+    for e in objects
+      streamId = e.dataset.streamid
+      position = getPosition(e)
 
-    # If not a TBPosition yet set, or new position not equals to the old one. Update views.
-    if !e.TBPosition || position.top != e.TBPosition.top || position.left != e.TBPosition.left || position.width != e.TBPosition.width || position.height != e.TBPosition.height
-      console.log("JS: Object updated with sessionId " + streamId + " updated");
-      e.TBPosition = position;
-      Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio]);
+      # If not a TBPosition yet set, or new position not equals to the old one. Update views.
+      if !e.TBPosition || position.top != e.TBPosition.top || position.left != e.TBPosition.left || position.width != e.TBPosition.width || position.height != e.TBPosition.height
+        console.log("JS: Object updated with sessionId " + streamId + " updated");
+        e.TBPosition = position;
+        Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio]);
+    return
+
+  # Ensure that we update before a repaint.
+  requestAnimationFrame = window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame;
+  if requestAnimationFrame
+    requestAnimationFrame(updateObject)
+  else
+    setTimeout(updateObject, 1000 / 60);
   return
+
 TBGenerateDomHelper = ->
   domId = "PubSub" + Date.now()
   div = document.createElement('div')

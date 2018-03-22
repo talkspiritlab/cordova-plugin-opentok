@@ -252,19 +252,28 @@ OTPublisherError = function(error) {
 };
 
 TBUpdateObjects = function() {
-  var e, objects, position, ratios, streamId, _i, _len;
-  console.log("JS: Objects being updated in TBUpdateObjects");
-  objects = document.getElementsByClassName('OT_root');
-  ratios = TBGetScreenRatios();
-  for (_i = 0, _len = objects.length; _i < _len; _i++) {
-    e = objects[_i];
-    streamId = e.dataset.streamid;
-    position = getPosition(e);
-    if (!e.TBPosition || position.top !== e.TBPosition.top || position.left !== e.TBPosition.left || position.width !== e.TBPosition.width || position.height !== e.TBPosition.height) {
-      console.log("JS: Object updated with sessionId " + streamId + " updated");
-      e.TBPosition = position;
-      Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio]);
+  var requestAnimationFrame, updateObject;
+  updateObject = function() {
+    var e, objects, position, ratios, streamId, _i, _len;
+    console.log("JS: Objects being updated in TBUpdateObjects");
+    objects = document.getElementsByClassName('OT_root');
+    ratios = TBGetScreenRatios();
+    for (_i = 0, _len = objects.length; _i < _len; _i++) {
+      e = objects[_i];
+      streamId = e.dataset.streamid;
+      position = getPosition(e);
+      if (!e.TBPosition || position.top !== e.TBPosition.top || position.left !== e.TBPosition.left || position.width !== e.TBPosition.width || position.height !== e.TBPosition.height) {
+        console.log("JS: Object updated with sessionId " + streamId + " updated");
+        e.TBPosition = position;
+        Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio]);
+      }
     }
+  };
+  requestAnimationFrame = window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame;
+  if (requestAnimationFrame) {
+    requestAnimationFrame(updateObject);
+  } else {
+    setTimeout(updateObject, 1000 / 60);
   }
 };
 
