@@ -174,12 +174,14 @@ class TBSession
     delete( @connections[ connection.connectionId] )
     return @
   sessionConnected: (event) =>
+    document.addEventListener('scroll', OTOnScrollEvent, true);
     @dispatchEvent(new TBEvent("sessionConnected"))
     @connection = new TBConnection( event.connection )
     @connections[event.connection.connectionId] = @connection
     event = null
     return @
   sessionDisconnected: (event) =>
+    document.removeEventListener('scroll', OTOnScrollEvent);
     @alreadyPublishing = false
     sessionDisconnectedEvent = new TBEvent("sessionDisconnected")
     sessionDisconnectedEvent.reason = event.reason

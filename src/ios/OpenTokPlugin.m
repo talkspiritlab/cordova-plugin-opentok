@@ -18,6 +18,7 @@
     NSString *apiKey;
     NSString *sessionId;
     NSMutableDictionary *observersDictionary;
+    Boolean statusBarPlugin;
 }
 
 @synthesize exceptionId;
@@ -29,6 +30,7 @@
     [self.webView setOpaque:false];
     [self.webView setBackgroundColor:UIColor.clearColor];
 
+    statusBarPlugin = true;
     callbackList = [[NSMutableDictionary alloc] init];
 }
 - (void)addEvent:(CDVInvokedUrlCommand*)command{
@@ -166,8 +168,9 @@
     [_publisher setPublishAudio:bpubAudio];
     [_publisher setPublishVideo:bpubVideo];
     [_publisher setAudioFallbackEnabled:baudioFallbackEnabled];
-    [self.webView.scrollView addSubview:_publisher.view];
-    [_publisher.view setFrame:CGRectMake(left, top, width, height)];
+    [self.webView.superview addSubview:_publisher.view];
+
+    [self setPosition: @"TBPublisher" top: top left: left width: width height: height];
 
     // Set depth location of camera view based on CSS z-index.
     _publisher.view.layer.zPosition = zIndex;
@@ -189,9 +192,11 @@
     int width = [[command.arguments objectAtIndex:3] intValue];
     int height = [[command.arguments objectAtIndex:4] intValue];
     int zIndex = [[command.arguments objectAtIndex:5] intValue];
+
     if ([sid isEqualToString:@"TBPublisher"]) {
         NSLog(@"The Width is: %d", width);
-        _publisher.view.frame = CGRectMake(left, top, width, height);
+        // Reposition the video feeds!
+        [self setPosition: sid top: top left: left width: width height: height];
 
         // Set depth location of camera view based on CSS z-index.
         _publisher.view.layer.zPosition = zIndex;
@@ -199,7 +204,7 @@
         // If the zIndex is 0(default) bring the view to the top, last one wins.
         // See: https://github.com/saghul/cordova-plugin-iosrtc/blob/5b6a180b324c8c9bac533fa481a457b74183c740/src/PluginMediaStreamRenderer.swift#L191
         if(zIndex == 0) {
-            [self.webView.scrollView bringSubviewToFront:_publisher.view];
+            [self.webView.superview bringSubviewToFront:_publisher.view];
         }
     }
 
@@ -208,7 +213,7 @@
 
     if (streamInfo) {
         // Reposition the video feeds!
-        streamInfo.view.frame = CGRectMake(left, top, width, height);
+        [self setPosition: sid top: top left: left width: width height: height];
 
         // Set depth location of camera view based on CSS z-index.
         streamInfo.view.layer.zPosition = zIndex;
@@ -216,7 +221,7 @@
         // If the zIndex is 0(default) bring the view to the top, last one wins.
         // See: https://github.com/saghul/cordova-plugin-iosrtc/blob/5b6a180b324c8c9bac533fa481a457b74183c740/src/PluginMediaStreamRenderer.swift#L191
         if(zIndex == 0) {
-            [self.webView.scrollView bringSubviewToFront:_publisher.view];
+            [self.webView.superview bringSubviewToFront:_publisher.view];
         }
     }
 
@@ -224,6 +229,35 @@
     [callbackResult setKeepCallbackAsBool:YES];
     //[self.commandDelegate sendPluginResult:callbackResult toSuccessCallbackString:command.callbackId];
     [self.commandDelegate sendPluginResult:callbackResult callbackId:command.callbackId];
+}
+- (void)hasStatusBarPlugin:(CDVInvokedUrlCommand*)command{
+    statusBarPlugin = [[command.arguments objectAtIndex:0] boolValue];
+}
+- (void)updateCamera:(CDVInvokedUrlCommand*)command{
+    NSString* sid = [command.arguments objectAtIndex:0];
+    int top = [[command.arguments objectAtIndex:1] intValue];
+    int left = [[command.arguments objectAtIndex:2] intValue];
+    int width = [[command.arguments objectAtIndex:3] intValue];
+    int height = [[command.arguments objectAtIndex:4] intValue];
+
+    [self setPosition: sid top: top left: left width: width height: height];
+}
+- (void)setPosition:(NSString*)sid top:(int)top left:(int)left width:(int)width height:(int)height {
+    int offsetTop = 20;
+    if (statusBarPlugin) {
+        // We set the offsetTop to the top position of the webView because the StatusBarPlugin changes the top position to the proper offset.
+        offsetTop = self.webView.frame.origin.y;
+    } else if ([UIApplication sharedApplication].isStatusBarHidden) {
+        offsetTop = 0;
+    }
+
+    CGRect frame = CGRectMake(left, top + offsetTop, width, height);
+    if ([sid isEqualToString:@"TBPublisher"]) {
+        _publisher.view.frame = frame;
+    } else {
+        OTSubscriber* streamInfo = [subscriberDictionary objectForKey:sid];
+        streamInfo.view.frame = frame;
+    }
 }
 
 #pragma mark Publisher Methods
@@ -366,7 +400,7 @@
     // Set depth location of camera view based on CSS z-index.
     sub.view.layer.zPosition = zIndex;
 
-    [self.webView.scrollView addSubview:sub.view];
+    [self.webView.superview addSubview:sub.view];
 
     // Return to JS event handler
     CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];

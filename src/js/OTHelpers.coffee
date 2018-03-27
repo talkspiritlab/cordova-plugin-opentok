@@ -10,20 +10,7 @@ streamElements = {} # keep track of DOM elements for each stream
 getPosition = (pubDiv) ->
   # Get the position of element
   if !pubDiv then return {}
-  computedStyle = if window.getComputedStyle then getComputedStyle(pubDiv, null) else {}
-  width = pubDiv.offsetWidth
-  height = pubDiv.offsetHeight
-  curtop = pubDiv.offsetTop
-  curleft = pubDiv.offsetLeft
-  while(pubDiv = pubDiv.offsetParent)
-    curleft += pubDiv.offsetLeft
-    curtop += pubDiv.offsetTop
-  return {
-    top:curtop
-    left:curleft
-    width:width
-    height:height
-  }
+  return pubDiv.getBoundingClientRect()
 
 replaceWithVideoStream = (element, streamId, properties) ->
   typeClass = if streamId == PublisherStreamId then PublisherTypeClass else SubscriberTypeClass
@@ -131,3 +118,11 @@ OTReplacePublisher = ()->
 
 pdebug = (msg, data) ->
   console.log "JS Lib: #{msg} - ", data
+
+OTOnScrollEvent = (e) ->
+  target = e.target;
+  videos = target.querySelectorAll('[data-streamid]')
+  if(videos)
+    for video in videos
+      position = getPosition(video)
+      Cordova.exec(TBSuccess, TBError, OTPlugin, "updateCamera", [video.getAttribute('data-streamid'), position.top, position.left, position.width, position.height] )

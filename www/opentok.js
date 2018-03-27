@@ -58,6 +58,10 @@ window.addEventListener("orientationchange", (function() {
   }), 1000);
 }), false);
 
+document.addEventListener("ondeviceready", (function() {
+  return Cordova.exec(TBSuccess, TBError, OTPlugin, "hasStatusBarPlugin", [window.hasOwnProperty("StatusBar")]);
+}), false);
+
 var TBConnection;
 
 TBConnection = (function() {
@@ -161,30 +165,15 @@ TBEvent = (function() {
 
 })();
 
-var OTPublisherError, OTReplacePublisher, TBError, TBGenerateDomHelper, TBGetScreenRatios, TBGetZIndex, TBSuccess, TBUpdateObjects, getPosition, pdebug, replaceWithVideoStream, streamElements;
+var OTOnScrollEvent, OTPublisherError, OTReplacePublisher, TBError, TBGenerateDomHelper, TBGetScreenRatios, TBGetZIndex, TBSuccess, TBUpdateObjects, getPosition, pdebug, replaceWithVideoStream, streamElements;
 
 streamElements = {};
 
 getPosition = function(pubDiv) {
-  var computedStyle, curleft, curtop, height, width;
   if (!pubDiv) {
     return {};
   }
-  computedStyle = window.getComputedStyle ? getComputedStyle(pubDiv, null) : {};
-  width = pubDiv.offsetWidth;
-  height = pubDiv.offsetHeight;
-  curtop = pubDiv.offsetTop;
-  curleft = pubDiv.offsetLeft;
-  while ((pubDiv = pubDiv.offsetParent)) {
-    curleft += pubDiv.offsetLeft;
-    curtop += pubDiv.offsetTop;
-  }
-  return {
-    top: curtop,
-    left: curleft,
-    width: width,
-    height: height
-  };
+  return pubDiv.getBoundingClientRect();
 };
 
 replaceWithVideoStream = function(element, streamId, properties) {
@@ -315,6 +304,21 @@ OTReplacePublisher = function() {
 
 pdebug = function(msg, data) {
   return console.log("JS Lib: " + msg + " - ", data);
+};
+
+OTOnScrollEvent = function(e) {
+  var position, target, video, videos, _i, _len, _results;
+  target = e.target;
+  videos = target.querySelectorAll('[data-streamid]');
+  if (videos) {
+    _results = [];
+    for (_i = 0, _len = videos.length; _i < _len; _i++) {
+      video = videos[_i];
+      position = getPosition(video);
+      _results.push(Cordova.exec(TBSuccess, TBError, OTPlugin, "updateCamera", [video.getAttribute('data-streamid'), position.top, position.left, position.width, position.height]));
+    }
+    return _results;
+  }
 };
 
 var TBPublisher,
@@ -764,6 +768,7 @@ TBSession = (function() {
   };
 
   TBSession.prototype.sessionConnected = function(event) {
+    document.addEventListener('scroll', OTOnScrollEvent, true);
     this.dispatchEvent(new TBEvent("sessionConnected"));
     this.connection = new TBConnection(event.connection);
     this.connections[event.connection.connectionId] = this.connection;
@@ -773,6 +778,7 @@ TBSession = (function() {
 
   TBSession.prototype.sessionDisconnected = function(event) {
     var sessionDisconnectedEvent;
+    document.removeEventListener('scroll', OTOnScrollEvent);
     this.alreadyPublishing = false;
     sessionDisconnectedEvent = new TBEvent("sessionDisconnected");
     sessionDisconnectedEvent.reason = event.reason;
