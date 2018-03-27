@@ -49,11 +49,6 @@ class TBSubscriber
       @element = document.getElementById(divObject)
 
     @streamId = stream.streamId
-    if(properties? && properties.width=="100%" && properties.height == "100%")
-      @element.style.width="100%"
-      @element.style.height="100%"
-      properties.width = ""
-      properties.height = ""
     divPosition = getPosition(@element)
     subscribeToVideo="true"
     zIndex = TBGetZIndex(@element)
@@ -73,6 +68,10 @@ class TBSubscriber
       width = DefaultWidth
       height = DefaultHeight
     obj = replaceWithVideoStream(@element, stream.streamId, {width:width, height:height, insertMode:insertMode})
+    # If element is not yet in body, set it to 0 and then the observer will set it properly.
+    if !document.body.contains(@element)
+      width = 0;
+      height = 0;
     position = getPosition(@element)
     ratios = TBGetScreenRatios()
     OT.getHelper().eventing(@)
