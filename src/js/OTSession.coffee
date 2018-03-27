@@ -217,6 +217,7 @@ class TBSession
   streamCreated: (event) =>
     stream = new TBStream( event.stream, @connections[event.stream.connectionId] )
     @streams[ stream.streamId ] = stream
+    OT.timeStreamCreated[stream.streamId] = performance.now()
     streamEvent = new TBEvent("streamCreated")
     streamEvent.stream = stream
     #streamEvent = new TBEvent( {stream: stream } )

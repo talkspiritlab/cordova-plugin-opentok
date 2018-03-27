@@ -70,28 +70,28 @@ OTPublisherError = (error) ->
     TBError(error)
 
 TBUpdateObjects = ()->
-  updateObject = () ->
-    console.log("JS: Objects being updated in TBUpdateObjects")
-    objects = document.getElementsByClassName('OT_root')
-
-    ratios = TBGetScreenRatios()
-    for e in objects
+  console.log("JS: Objects being updated in TBUpdateObjects")
+  updateObject = (e, time) ->
+    setTimeout(() ->
+      ratios = TBGetScreenRatios()
       streamId = e.dataset.streamid
       position = getPosition(e)
-
-      # If not a TBPosition yet set, or new position not equals to the old one. Update views.
       if !e.TBPosition || position.top != e.TBPosition.top || position.left != e.TBPosition.left || position.width != e.TBPosition.width || position.height != e.TBPosition.height
         console.log("JS: Object updated with sessionId " + streamId + " updated");
         e.TBPosition = position;
         Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio]);
+    , time)
     return
 
-  # Ensure that we update before a repaint.
-  requestAnimationFrame = window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame;
-  if requestAnimationFrame
-    requestAnimationFrame(updateObject)
-  else
-    setTimeout(updateObject, 1000 / 60);
+  objects = document.getElementsByClassName('OT_root')
+  for e in objects
+    streamId = e.dataset.streamid
+    time = 0
+    if typeof window.angular != "undefined" || typeof window.Ionic != "undefined"
+      if OT.timeStreamCreated[streamId]
+        time = performance.now() - OT.timeStreamCreated[streamId]
+        delete OT.timeStreamCreated[streamId]
+    updateObject(e, time)
   return
 
 TBGenerateDomHelper = ->
