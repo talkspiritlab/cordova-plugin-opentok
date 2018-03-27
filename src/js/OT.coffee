@@ -11,6 +11,7 @@
 #     TB.upgradeSystemRequirements()
 
 window.OT =
+  timeStreamCreated: {}
   checkSystemRequirements: ->
     return 1
   initPublisher: (one, two) ->
