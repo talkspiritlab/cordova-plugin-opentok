@@ -24,6 +24,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.graphics.Color;
+import android.hardware.camera2.CameraManager;
 import android.util.Log;
 import android.util.DisplayMetrics;
 import android.view.View;
@@ -45,6 +46,7 @@ import com.opentok.android.Stream.StreamVideoType;
 import com.opentok.android.Subscriber;
 import com.opentok.android.SubscriberKit;
 import com.opentok.android.BaseVideoRenderer;
+import com.opentok.android.BaseVideoCapturer;
 
 public class OpenTokAndroidPlugin extends CordovaPlugin
         implements  Session.SessionListener,
@@ -77,6 +79,9 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
     static CordovaWebView _webView;
     public static final String[] perms = {Manifest.permission.INTERNET, Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO};
     public CallbackContext permissionsCallback;
+
+    public boolean inBackground = false;
+    public boolean claimedInBackground = false;
 
     public class RunnableUpdateViews implements Runnable {
         public JSONArray mProperty;
@@ -125,6 +130,16 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             } catch (Exception e) {
                 return 0;
             }
+        }
+
+        public void removeView() {
+            cordova.getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    ViewGroup parent = (ViewGroup) webView.getView().getParent();
+                    parent.removeView(mView);
+                }
+            });
         }
 
         public void setPosition() {
@@ -177,6 +192,50 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
            audioFallbackEnabled, audioBitrate, audioSource, videoSource, frameRate, cameraResolution]
        */
         public Publisher mPublisher;
+        public boolean publishing = false;
+        public boolean oldPublishVideoState = false;
+
+        private final CameraManager.AvailabilityCallback cameraAvailableCallback = new CameraManager.AvailabilityCallback() {
+            @Override
+            public void onCameraAvailable(String cameraId) {
+                super.onCameraAvailable(cameraId);
+                if(mPublisher != null && publishing) {
+                    BaseVideoCapturer bvc = mPublisher.getCapturer();
+                    // If not yet capturing.. Initialize and start capturing..
+                    if (bvc != null && !bvc.isCaptureStarted()) {
+                        Log.i(TAG, "Camera available");
+                        try {
+                            // Camera claimed in background.
+                            if(inBackground) {
+                                claimedInBackground = true;
+                            }
+                            bvc.init();
+                            bvc.startCapture();
+                            mPublisher.setPublishVideo(oldPublishVideoState);
+                        } catch(Exception e) {
+
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void onCameraUnavailable(String cameraId) {
+                super.onCameraUnavailable(cameraId);
+                // If app is in background, and not camera yet claimed by us in background.. release camera.
+                if(mPublisher != null && inBackground && !claimedInBackground) {
+                    BaseVideoCapturer bvc = mPublisher.getCapturer();
+                    // If still capturing, stop it and release.
+                    if(bvc != null && bvc.isCaptureStarted() ){
+                        Log.i(TAG, "Camera unavailable");
+                        oldPublishVideoState = mPublisher.getPublishVideo();
+                        bvc.stopCapture();
+                        bvc.destroy();
+                        mPublisher.setPublishVideo(false);
+                    }
+                }
+            }
+        };
 
         public RunnablePublisher(JSONArray args) {
             this.mProperty = args;
@@ -239,18 +298,26 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             if (cameraName.equals("back")) {
                 mPublisher.cycleCamera();
             }
+
+            CameraManager manager = (CameraManager) cordova.getActivity().getSystemService(Context.CAMERA_SERVICE);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                manager.registerAvailabilityCallback(cameraAvailableCallback, null);
+            }
         }
+
 
         public void setPropertyFromArray(JSONArray args) {
             this.mProperty = args;
         }
 
         public void startPublishing() {
+            publishing = true;
             mSession.publish(mPublisher);
             cordova.getActivity().runOnUiThread(this);
         }
 
         public void stopPublishing() {
+            publishing = false;
             ViewGroup parent = (ViewGroup) webView.getView().getParent();
             parent.removeView(this.mView);
             if(this.mPublisher != null){
@@ -263,8 +330,12 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
         }
 
         public void destroyPublisher() {
-            ViewGroup parent = (ViewGroup) webView.getView().getParent();
-            parent.removeView(this.mView);
+            CameraManager manager = (CameraManager) cordova.getActivity().getSystemService(Context.CAMERA_SERVICE);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                manager.unregisterAvailabilityCallback(cameraAvailableCallback);
+            }
+
+            this.removeView();
             if (this.mPublisher != null) {
                 this.mPublisher.destroy();
                 this.mPublisher = null;
@@ -369,8 +440,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
         }
 
         public void removeStreamView() {
-            ViewGroup parent = (ViewGroup) webView.getView().getParent();
-            parent.removeView(this.mView);
+            this.removeView();
             if(mSubscriber != null) {
                 try {
                     mSession.unsubscribe(mSubscriber);
@@ -708,6 +778,21 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             myPublisher.startPublishing();
             Log.i(TAG, "permission granted-publisher is publishing");
         }
+    }
+
+    @Override
+    public void onPause(boolean multitasking) {
+        super.onPause(multitasking);
+        inBackground = true;
+        Log.i(TAG, "Pause");
+    }
+
+    @Override
+    public void onResume(boolean multitasking) {
+        super.onResume(multitasking);
+        inBackground = false;
+        Log.i(TAG, "Resume");
+        claimedInBackground = false; // We are on foreground, so its now claimed in foreground.
     }
 
     public void alertUser(String message) {
