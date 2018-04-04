@@ -605,18 +605,21 @@ TBSession = (function() {
     if ((four != null)) {
       subscriber = new TBSubscriber(one, two, three);
       this.subscriberCallbacks[one.streamId] = four;
+      this.subscribers[one.streamId] = subscriber;
       return subscriber;
     }
     if ((three != null)) {
       if ((typeof two === "string" || two.nodeType === 1 || two instanceof Element) && typeof three === "object") {
         console.log("stream, domId, props");
         subscriber = new TBSubscriber(one, two, three);
+        this.subscribers[one.streamId] = subscriber;
         return subscriber;
       }
       if ((typeof two === "string" || two.nodeType === 1 || two instanceof Element) && typeof three === "function") {
         console.log("stream, domId, completionHandler");
         this.subscriberCallbacks[one.streamId] = three;
         subscriber = new TBSubscriber(one, two, {});
+        this.subscribers[one.streamId] = subscriber;
         return subscriber;
       }
       if (typeof two === "object" && typeof three === "function") {
@@ -624,28 +627,33 @@ TBSession = (function() {
         this.subscriberCallbacks[one.streamId] = three;
         domId = TBGenerateDomHelper();
         subscriber = new TBSubscriber(one, domId, two);
+        this.subscribers[one.streamId] = subscriber;
         return subscriber;
       }
     }
     if ((two != null)) {
       if (typeof two === "string" || two.nodeType === 1 || two instanceof Element) {
         subscriber = new TBSubscriber(one, two, {});
+        this.subscribers[one.streamId] = subscriber;
         return subscriber;
       }
       if (typeof two === "object") {
         domId = TBGenerateDomHelper();
         subscriber = new TBSubscriber(one, domId, two);
+        this.subscribers[one.streamId] = subscriber;
         return subscriber;
       }
       if (typeof two === "function") {
         this.subscriberCallbacks[one.streamId] = two;
         domId = TBGenerateDomHelper();
         subscriber = new TBSubscriber(one, domId, {});
+        this.subscribers[one.streamId] = subscriber;
         return subscriber;
       }
     }
     domId = TBGenerateDomHelper();
     subscriber = new TBSubscriber(one, domId, {});
+    this.subscribers[one.streamId] = subscriber;
     return subscriber;
   };
 
@@ -696,6 +704,7 @@ TBSession = (function() {
     this.apiKey = this.apiKey.toString();
     this.connections = {};
     this.streams = {};
+    this.subscribers = {};
     this.alreadyPublishing = false;
     OT.getHelper().eventing(this);
     Cordova.exec(TBSuccess, TBSuccess, OTPlugin, "initSession", [this.apiKey, this.sessionId]);
@@ -989,6 +998,7 @@ TBSubscriber = (function() {
       this.element = document.getElementById(divObject);
     }
     this.streamId = stream.streamId;
+    this.stream = stream;
     if ((properties != null) && properties.width === "100%" && properties.height === "100%") {
       this.element.style.width = "100%";
       this.element.style.height = "100%";
