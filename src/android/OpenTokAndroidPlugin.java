@@ -295,6 +295,8 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             mPublisher.setPublishVideo(publishVideo);
             mPublisher.setPublishAudio(publishAudio);
 
+            oldPublishVideoState = publishVideo;
+
             if (cameraName.equals("back")) {
                 mPublisher.cycleCamera();
             }
