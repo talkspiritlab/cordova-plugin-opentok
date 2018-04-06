@@ -133,7 +133,7 @@
     // Sanitize publisher properties
     if ([cameraResolution isEqualToString:@"1280x720"]) {
       finalCameraResolution = OTCameraCaptureResolutionHigh;
-    }else if ([cameraResolution isEqualToString:@"352x288"]) {
+    }else if ([cameraResolution isEqualToString:@"320x240"]) {
       finalCameraResolution = OTCameraCaptureResolutionLow;
     } else {
       finalCameraResolution = OTCameraCaptureResolutionMedium;
