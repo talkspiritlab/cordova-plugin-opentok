@@ -272,7 +272,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
                 if (compareStrings(this.mProperty.getString(16), "1280x720")) {
                     resolution = "HIGH";
                 }
-                if (compareStrings(this.mProperty.getString(16), "352x288")) {
+                if (compareStrings(this.mProperty.getString(16), "320x240")) {
                     resolution = "LOW";
                 }
                 Log.i(TAG, "publisher properties sanitized");
