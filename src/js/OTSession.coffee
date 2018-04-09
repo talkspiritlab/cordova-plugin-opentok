@@ -250,6 +250,8 @@ class TBSession
     stream = new TBStream(event.stream, @connections[event.stream.connectionId])
     if(stream.streamId == @publisher.stream.streamId)
       @publisher.stream = stream
+    else
+      @subscribers[stream.streamId].stream = stream
     @streams[stream.streamId] = stream
     @subscribers[stream.streamId].stream = stream;
 

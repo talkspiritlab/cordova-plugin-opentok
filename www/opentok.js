@@ -970,6 +970,8 @@ TBSession = (function() {
     stream = new TBStream(event.stream, this.connections[event.stream.connectionId]);
     if (stream.streamId === this.publisher.stream.streamId) {
       this.publisher.stream = stream;
+    } else {
+      this.subscribers[stream.streamId].stream = stream;
     }
     this.streams[stream.streamId] = stream;
     this.subscribers[stream.streamId].stream = stream;
