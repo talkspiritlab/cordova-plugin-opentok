@@ -49,6 +49,7 @@ class TBSubscriber
       @element = document.getElementById(divObject)
 
     @streamId = stream.streamId
+    @stream = stream
     if(properties? && properties.width=="100%" && properties.height == "100%")
       @element.style.width="100%"
       @element.style.height="100%"

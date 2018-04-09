@@ -69,41 +69,49 @@ class TBSession
       # stream,domId, properties, completionHandler
       subscriber = new TBSubscriber(one, two, three)
       @subscriberCallbacks[one.streamId] = four
+      @subscribers[one.streamId] = subscriber
       return subscriber
     if( three? )
       # stream, domId, properties || stream, domId, completionHandler || stream, properties, completionHandler
       if( (typeof(two) == "string" || two.nodeType == 1 || two instanceof Element) && typeof(three) == "object" )
         console.log("stream, domId, props")
         subscriber = new TBSubscriber(one, two, three)
+        @subscribers[one.streamId] = subscriber
         return subscriber
       if( (typeof(two) == "string" || two.nodeType == 1 || two instanceof Element) && typeof(three) == "function" )
         console.log("stream, domId, completionHandler")
         @subscriberCallbacks[one.streamId]=three
         subscriber = new TBSubscriber(one, two, {})
+        @subscribers[one.streamId] = subscriber
         return subscriber
       if(typeof(two) == "object" && typeof(three) == "function" )
         console.log("stream, props, completionHandler")
         @subscriberCallbacks[one.streamId] = three
         domId = TBGenerateDomHelper()
         subscriber = new TBSubscriber( one, domId, two )
+        @subscribers[one.streamId] = subscriber
         return subscriber
     if( two? )
       # stream, domId || stream, properties || stream,completionHandler
       if( (typeof(two) == "string" || two.nodeType == 1 || two instanceof Element) )
         subscriber = new TBSubscriber(one, two, {})
+        @subscribers[one.streamId] = subscriber
         return subscriber
       if( typeof(two) == "object" )
         domId = TBGenerateDomHelper()
         subscriber = new TBSubscriber(one, domId, two)
+        @subscribers[one.streamId] = subscriber
         return subscriber
       if( typeof(two) == "function" )
         @subscriberCallbacks[one.streamId] = two
         domId = TBGenerateDomHelper()
         subscriber = new TBSubscriber(one, domId, {})
+        @subscribers[one.streamId] = subscriber
         return subscriber
     # stream
     domId = TBGenerateDomHelper()
     subscriber = new TBSubscriber(one, domId, {})
+    @subscribers[one.streamId] = subscriber
     return subscriber
   unpublish:() ->
     @alreadyPublishing = false
@@ -129,6 +137,7 @@ class TBSession
     @apiKey = @apiKey.toString()
     @connections = {}
     @streams = {}
+    @subscribers = {}
     @alreadyPublishing = false
     OT.getHelper().eventing(@)
     Cordova.exec(TBSuccess, TBSuccess, OTPlugin, "initSession", [@apiKey, @sessionId] )
@@ -219,9 +228,10 @@ class TBSession
     return @
   streamPropertyChanged: (event) ->
     stream = new TBStream(event.stream, @connections[event.stream.connectionId])
-    if(stream.streamId == "TBPublisher")
+    if(stream.streamId == @publisher.stream.streamId)
       @publisher.stream = stream
     @streams[stream.streamId] = stream
+    @subscribers[stream.streamId].stream = stream;
 
     streamEvent = new TBEvent("streamPropertyChanged")
     streamEvent.stream = event.stream
