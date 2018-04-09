@@ -248,9 +248,10 @@ class TBSession
     return @
   streamPropertyChanged: (event) ->
     stream = new TBStream(event.stream, @connections[event.stream.connectionId])
-    if(stream.streamId == "TBPublisher")
+    if(stream.streamId == @publisher.stream.streamId)
       @publisher.stream = stream
     @streams[stream.streamId] = stream
+    @subscribers[stream.streamId].stream = stream;
 
     streamEvent = new TBEvent("streamPropertyChanged")
     streamEvent.stream = event.stream
