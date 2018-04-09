@@ -974,7 +974,6 @@ TBSession = (function() {
       this.subscribers[stream.streamId].stream = stream;
     }
     this.streams[stream.streamId] = stream;
-    this.subscribers[stream.streamId].stream = stream;
     streamEvent = new TBEvent("streamPropertyChanged");
     streamEvent.stream = event.stream;
     streamEvent.changedProperty = event.changedProperty;

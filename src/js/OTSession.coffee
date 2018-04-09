@@ -253,7 +253,6 @@ class TBSession
     else
       @subscribers[stream.streamId].stream = stream
     @streams[stream.streamId] = stream
-    @subscribers[stream.streamId].stream = stream;
 
     streamEvent = new TBEvent("streamPropertyChanged")
     streamEvent.stream = event.stream
