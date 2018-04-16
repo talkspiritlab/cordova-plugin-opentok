@@ -76,10 +76,12 @@ TBUpdateObjects = ()->
       ratios = TBGetScreenRatios()
       streamId = e.dataset.streamid
       position = getPosition(e)
-      if !e.TBPosition || position.top != e.TBPosition.top || position.left != e.TBPosition.left || position.width != e.TBPosition.width || position.height != e.TBPosition.height
+      zIndex = TBGetZIndex(e)
+      if !e.TBPosition || position.top != e.TBPosition.top || position.left != e.TBPosition.left || position.width != e.TBPosition.width || position.height != e.TBPosition.height || zIndex != e.TBZIndex
         console.log("JS: Object updated with sessionId " + streamId + " updated");
         e.TBPosition = position;
-        Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio]);
+        e.TBZIndex = zIndex;
+        Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, zIndex, ratios.widthRatio, ratios.heightRatio]);
     , time)
     return
 
