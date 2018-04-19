@@ -80,7 +80,11 @@ class TBSubscriber
     Cordova.exec(@eventReceived, TBSuccess, OTPlugin, "addEvent", ["subscriberEvents"] )
 
   eventReceived: (response) =>
-    @[response.eventType](response.data)
+    pdebug "subscriber event received", response
+    if typeof @[response.eventType] == "function"
+      @[response.eventType](response.data)
+    else
+      pdebug "No method found for EventType: '" + response.eventType + "'";
   connected: (event) =>
     streamEvent = new TBEvent("connected")
     streamEvent.stream = event.streamId
