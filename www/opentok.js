@@ -1154,7 +1154,11 @@ TBSubscriber = (function() {
 
   TBSubscriber.prototype.eventReceived = function(response) {
     pdebug("subscriber event received", response);
-    return this[response.eventType](response.data);
+    if (typeof this[response.eventType] === "function") {
+      return this[response.eventType](response.data);
+    } else {
+      return pdebug("No method found for EventType: '" + response.eventType + "'");
+    }
   };
 
   TBSubscriber.prototype.connected = function(event) {

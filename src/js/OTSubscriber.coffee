@@ -74,7 +74,10 @@ class TBSubscriber
 
   eventReceived: (response) =>
     pdebug "subscriber event received", response
-    @[response.eventType](response.data)
+    if typeof @[response.eventType] == "function"
+      @[response.eventType](response.data)
+    else
+      pdebug "No method found for EventType: '" + response.eventType + "'";
   connected: (event) =>
     streamEvent = new TBEvent("connected")
     streamEvent.stream = event.streamId
