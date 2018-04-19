@@ -970,9 +970,9 @@ TBSession = (function() {
   TBSession.prototype.streamPropertyChanged = function(event) {
     var stream, streamEvent;
     stream = new TBStream(event.stream, this.connections[event.stream.connectionId]);
-    if (stream.streamId === this.publisher.stream.streamId) {
+    if (this.publisher && this.publisher.stream && this.publisher.stream.streamId === stream.streamId) {
       this.publisher.stream = stream;
-    } else {
+    } else if (this.subscribers[stream.streamId]) {
       this.subscribers[stream.streamId].stream = stream;
     }
     this.streams[stream.streamId] = stream;
