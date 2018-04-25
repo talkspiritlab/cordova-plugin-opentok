@@ -722,7 +722,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
                 Log.i(TAG, "setting subscribeToVideo");
                 runsub.subscribeToVideo(subscribeVideo);
             }
-        } else if (action.equals("uspdateView")) {
+        } else if (action.equals("updateView")) {
             if (args.getString(0).equals("TBPublisher") && myPublisher != null && sessionConnected) {
                 Log.i(TAG, "updating view for publisher");
                 myPublisher.setPropertyFromArray(args);
