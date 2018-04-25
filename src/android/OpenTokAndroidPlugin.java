@@ -85,14 +85,14 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
     public static final String[] perms = {Manifest.permission.INTERNET, Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO};
     public CallbackContext permissionsCallback;
 
-    public class CustomView extends ViewGroup {
+    public class CameraView extends ViewGroup {
         int x = 0;
         int y = 0;
         int width = 0;
         int height = 0;
         TextureView view;
 
-        public CustomView(Context context, TextureView textureView) {
+        public CameraView(Context context, TextureView textureView) {
             super(context);
             this.view = textureView;
             this.setClipChildren(true);
@@ -152,7 +152,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
     public class RunnableUpdateViews implements Runnable {
         public JSONArray mProperty;
-        public CustomView mView;
+        public CameraView mView;
         public ArrayList<RunnableUpdateViews> allStreamViews;
 
         // Used for setting the camera views.
@@ -339,7 +339,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
         public void run() {
             if(this.mView == null) {
-                this.mView = new CustomView(cordova.getActivity().getApplicationContext(), (TextureView) mPublisher.getView());
+                this.mView = new CameraView(cordova.getActivity().getApplicationContext(), (TextureView) mPublisher.getView());
                 ((ViewGroup) webView.getView().getParent()).addView(this.mView);
 
                 // Set depth location of camera view based on CSS z-index.
@@ -449,7 +449,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
         public void run() {
             if(this.mView == null) {
-                this.mView = new CustomView(cordova.getActivity().getApplicationContext(), (TextureView) mSubscriber.getView());
+                this.mView = new CameraView(cordova.getActivity().getApplicationContext(), (TextureView) mSubscriber.getView());
                 ((ViewGroup) webView.getView().getParent()).addView(this.mView);
 
                 // Set depth location of camera view based on CSS z-index.
