@@ -105,27 +105,30 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             this.width = width;
             this.height = height;
 
-            DisplayMetrics metrics = new DisplayMetrics();
-            cordova.getActivity().getWindowManager().getDefaultDisplay().getMetrics(metrics);
-
-            int videoWidth = metrics.widthPixels;
-            int videoHeight = metrics.heightPixels;
+            int videoWidth = getWidth();
+            int videoHeight = getHeight();
             if(getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
-                videoWidth = metrics.heightPixels;
-                videoHeight = metrics.widthPixels;
+                videoWidth = getHeight();
+                videoHeight = getWidth();
             }
 
             float videoRatio = (videoHeight / videoWidth);
             float containerRatio = (height / width);
-
             float scale = Math.max((float) width / videoWidth, (float) height / videoHeight);
 
             Matrix matrix = new Matrix();
             this.view.getTransform(matrix);
             matrix.setScale(scale, scale);
 
-            float scaledWidth = width * scale;
-            float scaledHeight = height * scale;
+            float scaledWidth = videoWidth * scale;
+            float scaledHeight = videoHeight * scale;
+            if((int) scaledWidth != width) {
+                xPos -= (int) ((scaledWidth - width) / 2);
+            }
+            if((int) scaledHeight != height) {
+                yPos -= (int) ((scaledHeight - height) / 2);
+            }
+
             matrix.postTranslate(xPos, yPos);
             this.view.setTransform(matrix);
         }
