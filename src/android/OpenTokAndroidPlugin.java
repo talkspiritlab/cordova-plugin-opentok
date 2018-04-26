@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.lang.Math;
 
 import org.apache.cordova.CordovaInterface;
 import org.apache.cordova.CordovaPlugin;
@@ -21,11 +22,17 @@ import android.content.pm.PackageManager;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
+import android.graphics.Path;
+import android.graphics.RectF;
 import android.util.Log;
 import android.util.DisplayMetrics;
+import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import com.android.volley.Request;
@@ -78,11 +85,82 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
     public static final String[] perms = {Manifest.permission.INTERNET, Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO};
     public CallbackContext permissionsCallback;
 
+    public class CameraView extends ViewGroup {
+        int x = 0;
+        int y = 0;
+        int width = 0;
+        int height = 0;
+        TextureView view;
+
+        public CameraView(Context context, TextureView textureView) {
+            super(context);
+            this.view = textureView;
+            this.setClipChildren(true);
+            this.addView(this.view);
+        }
+
+        public void setPosition(int xPos, int yPos, int width, int height) {
+            this.x = xPos;
+            this.y = yPos;
+            this.width = width;
+            this.height = height;
+
+            int videoWidth = getWidth();
+            int videoHeight = getHeight();
+            if(getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                videoWidth = getHeight();
+                videoHeight = getWidth();
+            }
+
+            float videoRatio = (videoHeight / videoWidth);
+            float containerRatio = (height / width);
+            float scale = Math.max((float) width / videoWidth, (float) height / videoHeight);
+
+            Matrix matrix = new Matrix();
+            this.view.getTransform(matrix);
+            matrix.setScale(scale, scale);
+
+            float scaledWidth = videoWidth * scale;
+            float scaledHeight = videoHeight * scale;
+            if((int) scaledWidth != width) {
+                xPos -= (int) ((scaledWidth - width) / 2);
+            }
+            if((int) scaledHeight != height) {
+                yPos -= (int) ((scaledHeight - height) / 2);
+            }
+
+            matrix.postTranslate(xPos, yPos);
+            this.view.setTransform(matrix);
+        }
+
+        @Override
+        protected void onLayout(boolean changed, int l, int t, int r, int b) {
+            int childCount = getChildCount();
+            for(int i=0; i < childCount;i++) {
+                View v = getChildAt(i);
+                v.layout(l, t, r, b);
+            }
+        }
+
+        @Override
+        protected void dispatchDraw(Canvas canvas) {
+            int save = canvas.save();
+            Path clipPath = new Path();
+            clipPath.addRect(new RectF(this.x, this.y, this.width + this.x, this.height + this.y), Path.Direction.CW);
+            canvas.clipPath(clipPath);
+            super.dispatchDraw(canvas);
+            canvas.restoreToCount(save);
+        }
+    }
 
     public class RunnableUpdateViews implements Runnable {
         public JSONArray mProperty;
-        public View mView;
+        public CameraView mView;
         public ArrayList<RunnableUpdateViews> allStreamViews;
+
+        // Used for setting the camera views.
+        public float widthRatio;
+        public float heightRatio;
 
         public class CustomComparator implements Comparator<RunnableUpdateViews> {
             @Override
@@ -124,14 +202,18 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             }
         }
 
+        public void setPosition() {
+            try {
+                this.mView.setPosition((int) (mProperty.getInt(2) * widthRatio), (int) (mProperty.getInt(1) * heightRatio), (int) (mProperty.getInt(3) * widthRatio), (int) (mProperty.getInt(4) * heightRatio));
+            } catch (Exception e) {}
+        }
+
         @SuppressLint("NewApi")
         @Override
         public void run() {
             try {
                 Log.i(TAG, "updating view in ui runnable" + mProperty.toString());
                 Log.i(TAG, "updating view in ui runnable " + mView.toString());
-
-                float widthRatio, heightRatio;
 
                 // Ratios are index 6 & 7 on TB.updateViews, 8 & 9 on subscribe event, and 9 & 10 on TB.initPublisher
                 int ratioIndex;
@@ -148,12 +230,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
                 widthRatio = (float) mProperty.getDouble(ratioIndex) * metrics.density;
                 heightRatio = (float) mProperty.getDouble(ratioIndex + 1) * metrics.density;
-                mView.setY(mProperty.getInt(1) * heightRatio);
-                mView.setX(mProperty.getInt(2) * widthRatio);
-                ViewGroup.LayoutParams params = mView.getLayoutParams();
-                params.height = (int) (mProperty.getInt(4) * heightRatio);
-                params.width = (int) (mProperty.getInt(3) * widthRatio);
-                mView.setLayoutParams(params);
+                setPosition();
                 updateZIndices();
             } catch (Exception e) {
                 Log.i(TAG, "error when trying to retrieve properties while resizing properties");
@@ -265,7 +342,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
         public void run() {
             if(this.mView == null) {
-                this.mView = mPublisher.getView();
+                this.mView = new CameraView(cordova.getActivity().getApplicationContext(), (TextureView) mPublisher.getView());
                 ((ViewGroup) webView.getView().getParent()).addView(this.mView);
 
                 // Set depth location of camera view based on CSS z-index.
@@ -286,7 +363,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
         public void onStreamCreated(PublisherKit arg0, Stream arg1) {
             Log.i(TAG, "publisher stream received");
             streamCollection.put(arg1.getStreamId(), arg1);
-            
+
             streamHasAudio.put(arg1.getStreamId(), arg1.hasAudio());
             streamHasVideo.put(arg1.getStreamId(), arg1.hasVideo());
             JSONObject videoDimensions = new JSONObject();
@@ -375,7 +452,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
         public void run() {
             if(this.mView == null) {
-                this.mView = mSubscriber.getView();
+                this.mView = new CameraView(cordova.getActivity().getApplicationContext(), (TextureView) mSubscriber.getView());
                 ((ViewGroup) webView.getView().getParent()).addView(this.mView);
 
                 // Set depth location of camera view based on CSS z-index.
@@ -540,7 +617,12 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             apiKey = args.getString(0);
             sessionId = args.getString(1);
             Log.i(TAG, "created new session with data: " + args.toString());
-            mSession = new Session(this.cordova.getActivity().getApplicationContext(), apiKey, sessionId);
+            mSession = new Session.Builder(this.cordova.getActivity().getApplicationContext(), apiKey, sessionId).sessionOptions(new Session.SessionOptions() {
+                @Override
+                public boolean useTextureViews() {
+                    return true;
+                }
+            }).build();
             mSession.setSessionListener(this);
             mSession.setConnectionListener(this);
             mSession.setReconnectionListener(this);
@@ -873,7 +955,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
     @Override
     public void onStreamVideoDimensionsChanged(Session session, Stream stream, int width, int height) {
         JSONObject oldValue = this.streamVideoDimensions.get(stream.getStreamId());
-        
+
         JSONObject newValue = new JSONObject();
         try {
             newValue.put("width", width);
