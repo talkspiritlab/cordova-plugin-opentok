@@ -311,8 +311,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
         public void stopPublishing() {
             publishing = false;
-            ViewGroup parent = (ViewGroup) webView.getView().getParent();
-            parent.removeView(this.mView);
+            this.removeView();
             if(this.mPublisher != null){
                 try {
                     mSession.unpublish(this.mPublisher);
