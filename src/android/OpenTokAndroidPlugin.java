@@ -163,7 +163,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
     public class RunnableUpdateViews implements Runnable {
         public JSONArray mProperty;
         public CameraView mView;
-        public ArrayList<RunnableUpdateViews> allStreamVi101%ews;
+        public ArrayList<RunnableUpdateViews> allStreamViews;
 
         // Used for setting the camera views.
         public float widthRatio;
