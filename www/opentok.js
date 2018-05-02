@@ -301,7 +301,7 @@ TBGetBorderRadius = function(ele) {
   while ((ele != null)) {
     borderRadius = new Array(8);
     vals = window.getComputedStyle(ele, null).borderRadius.split(' ');
-    if (vals.length === 0 && parseInt(vals[0]) === 0) {
+    if (vals.length === 0 || vals.length === 1 && parseFloat(vals[0]) === 0) {
       ele = ele.offsetParent;
     } else {
       for (i = _i = 0, _len = vals.length; _i < _len; i = ++_i) {
