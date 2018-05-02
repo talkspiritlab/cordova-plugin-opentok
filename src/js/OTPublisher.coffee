@@ -66,7 +66,7 @@ class TBPublisher
       height = 0;
     @position = getPosition(@pubElement)
     OT.getHelper().eventing(@)
-    Cordova.exec(TBSuccess, TBError, OTPlugin, "initPublisher", [name, position.top, position.left, width, height, zIndex, publishAudio, publishVideo, cameraName, ratios.widthRatio, ratios.heightRatio, borderRadius, audioFallbackEnabled, audioBitrate, audioSource, videoSource, frameRate, resolution] )
+    Cordova.exec(TBSuccess, TBError, OTPlugin, "initPublisher", [name, @position.top, @position.left, width, height, zIndex, publishAudio, publishVideo, cameraName, ratios.widthRatio, ratios.heightRatio, borderRadius, audioFallbackEnabled, audioBitrate, audioSource, videoSource, frameRate, resolution] )
     Cordova.exec(@eventReceived, TBSuccess, OTPlugin, "addEvent", ["publisherEvents"] )
   setSession: (session) =>
     @session = session

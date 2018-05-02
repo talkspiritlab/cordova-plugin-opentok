@@ -77,11 +77,12 @@ TBUpdateObjects = ()->
       streamId = e.dataset.streamid
       position = getPosition(e)
       zIndex = TBGetZIndex(e)
-      if !e.TBPosition || position.top != e.TBPosition.top || position.left != e.TBPosition.left || position.width != e.TBPosition.width || position.height != e.TBPosition.height || zIndex != e.TBZIndex
+      borderRadius = TBGetBorderRadius(e)
+      if e.TBBorderRadius != borderRadius || !e.TBPosition || position.top != e.TBPosition.top || position.left != e.TBPosition.left || position.width != e.TBPosition.width || position.height != e.TBPosition.height || zIndex != e.TBZIndex
         console.log("JS: Object updated with sessionId " + streamId + " updated");
         e.TBPosition = position;
         e.TBZIndex = zIndex;
-        borderRadius = TBGetBorderRadius(e)
+        e.TBBorderRadius = borderRadius;
         Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, zIndex, ratios.widthRatio, ratios.heightRatio, borderRadius]);
     , time)
     return
@@ -243,7 +244,7 @@ OTDomObserver = new MutationObserver((mutations) ->
 )
 
 pdebug = (msg, data) ->
-  console.log "JS Lib: #{msg} - ", data
+  #console.log "JS Lib: #{msg} - ", data
 
 OTOnScrollEvent = (e) ->
   target = e.target;
