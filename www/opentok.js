@@ -1,5 +1,4 @@
 window.OT = {
-  timeStreamCreated: {},
   checkSystemRequirements: function() {
     return 1;
   },
@@ -57,10 +56,6 @@ window.addEventListener("orientationchange", (function() {
   setTimeout((function() {
     OT.updateViews();
   }), 1000);
-}), false);
-
-document.addEventListener("deviceready", (function() {
-  return Cordova.exec(TBSuccess, TBError, OTPlugin, "hasStatusBarPlugin", [window.hasOwnProperty("StatusBar")]);
 }), false);
 
 var TBConnection;
@@ -166,15 +161,30 @@ TBEvent = (function() {
 
 })();
 
-var OTDomObserver, OTObserveVideoContainer, OTOnScrollEvent, OTPublisherError, OTReplacePublisher, TBError, TBGenerateDomHelper, TBGetScreenRatios, TBGetZIndex, TBSuccess, TBUpdateObjects, getPosition, pdebug, replaceWithVideoStream, streamElements;
+var OTPublisherError, OTReplacePublisher, TBError, TBGenerateDomHelper, TBGetBorderRadius, TBGetScreenRatios, TBGetZIndex, TBSuccess, TBUpdateObjects, getPosition, pdebug, replaceWithVideoStream, streamElements;
 
 streamElements = {};
 
 getPosition = function(pubDiv) {
+  var computedStyle, curleft, curtop, height, width;
   if (!pubDiv) {
     return {};
   }
-  return pubDiv.getBoundingClientRect();
+  computedStyle = window.getComputedStyle ? getComputedStyle(pubDiv, null) : {};
+  width = pubDiv.offsetWidth;
+  height = pubDiv.offsetHeight;
+  curtop = pubDiv.offsetTop;
+  curleft = pubDiv.offsetLeft;
+  while ((pubDiv = pubDiv.offsetParent)) {
+    curleft += pubDiv.offsetLeft;
+    curtop += pubDiv.offsetTop;
+  }
+  return {
+    top: curtop,
+    left: curleft,
+    width: width,
+    height: height
+  };
 };
 
 replaceWithVideoStream = function(element, streamId, properties) {
@@ -188,16 +198,8 @@ replaceWithVideoStream = function(element, streamId, properties) {
   newElement.setAttribute("class", "OT_root " + typeClass);
   newElement.setAttribute("data-streamid", streamId);
   newElement.setAttribute("data-insertMode", properties.insertMode);
-  if (typeof properties.width === 'string') {
-    newElement.style.width = properties.width;
-  } else {
-    newElement.style.width = properties.width + "px";
-  }
-  if (typeof properties.height === 'string') {
-    newElement.style.height = properties.height;
-  } else {
-    newElement.style.height = properties.height + "px";
-  }
+  newElement.style.width = properties.width + "px";
+  newElement.style.height = properties.height + "px";
   newElement.style.overflow = "hidden";
   newElement.style['background-color'] = "#000000";
   streamElements[streamId] = newElement;
@@ -242,35 +244,18 @@ OTPublisherError = function(error) {
 };
 
 TBUpdateObjects = function() {
-  var e, objects, streamId, time, updateObject, _i, _len;
+  var borderRadius, e, objects, position, ratios, streamId, _i, _len;
   console.log("JS: Objects being updated in TBUpdateObjects");
-  updateObject = function(e, time) {
-    setTimeout(function() {
-      var position, ratios, streamId, zIndex;
-      ratios = TBGetScreenRatios();
-      streamId = e.dataset.streamid;
-      position = getPosition(e);
-      zIndex = TBGetZIndex(e);
-      if (!e.TBPosition || position.top !== e.TBPosition.top || position.left !== e.TBPosition.left || position.width !== e.TBPosition.width || position.height !== e.TBPosition.height || zIndex !== e.TBZIndex) {
-        console.log("JS: Object updated with sessionId " + streamId + " updated");
-        e.TBPosition = position;
-        e.TBZIndex = zIndex;
-        return Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, zIndex, ratios.widthRatio, ratios.heightRatio]);
-      }
-    }, time);
-  };
   objects = document.getElementsByClassName('OT_root');
+  ratios = TBGetScreenRatios();
   for (_i = 0, _len = objects.length; _i < _len; _i++) {
     e = objects[_i];
+    console.log("JS: Object updated");
     streamId = e.dataset.streamid;
-    time = 0;
-    if (typeof window.angular !== "undefined" || typeof window.Ionic !== "undefined") {
-      if (OT.timeStreamCreated[streamId]) {
-        time = performance.now() - OT.timeStreamCreated[streamId];
-        delete OT.timeStreamCreated[streamId];
-      }
-    }
-    updateObject(e, time);
+    console.log("JS sessionId: " + streamId);
+    position = getPosition(e);
+    borderRadius = TBGetBorderRadius(e);
+    Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio, borderRadius]);
   }
 };
 
@@ -293,6 +278,49 @@ TBGetZIndex = function(ele) {
     ele = ele.offsetParent;
   }
   return 0;
+};
+
+TBGetBorderRadius = function(ele) {
+  var borderRadius, i, position, radiiX, radiiY, val, vals, value, _i, _len;
+  while ((ele != null)) {
+    borderRadius = new Array(8);
+    vals = window.getComputedStyle(ele, null).borderRadius.split(' ');
+    if (vals.length === 0 && parseInt(vals[0]) === 0) {
+      ele = ele.offsetParent;
+    } else {
+      for (i = _i = 0, _len = vals.length; _i < _len; i = ++_i) {
+        val = vals[i];
+        value = parseFloat(val);
+        if (vals[i].indexOf('%') > -1) {
+          position = getPosition(ele);
+          radiiX = (position.width / 100) * value;
+          radiiY = (position.height / 100) * value;
+        } else {
+          radiiX = value;
+          radiiY = value;
+        }
+        if (i === 0) {
+          borderRadius = [radiiX, radiiY, radiiX, radiiY, radiiX, radiiY, radiiX, radiiY];
+        }
+        if (i === 1 || i === 1 && vals.length === 2) {
+          borderRadius[2] = radiiX;
+          borderRadius[3] = radiiY;
+          borderRadius[6] = radiiX;
+          borderRadius[7] = radiiY;
+        }
+        if (i === 2 || i === 2 && vals.length === 3) {
+          borderRadius[4] = radiiX;
+          borderRadius[5] = radiiY;
+        }
+        if (i === 3 || i === 3 && vals.length === 4) {
+          borderRadius[6] = radiiX;
+          borderRadius[7] = radiiY;
+        }
+      }
+      return borderRadius.join(' ');
+    }
+  }
+  return '0 0 0 0 0 0 0 0';
 };
 
 TBGetScreenRatios = function() {
@@ -329,105 +357,8 @@ OTReplacePublisher = function() {
   }
 };
 
-OTObserveVideoContainer = (function() {
-  var videoContainerObserver;
-  videoContainerObserver = new MutationObserver(function(mutations) {
-    var mutation, _i, _len, _results;
-    _results = [];
-    for (_i = 0, _len = mutations.length; _i < _len; _i++) {
-      mutation = mutations[_i];
-      if (mutation.attributeName === 'style' || mutation.attributeName === 'class') {
-        _results.push(TBUpdateObjects());
-      } else {
-        _results.push(void 0);
-      }
-    }
-    return _results;
-  });
-  return function(videoContainer) {
-    if (videoContainer._OTObserved) {
-      return TBUpdateObjects(videoContainer);
-    } else {
-      videoContainer._OTObserved = true;
-      return videoContainerObserver.observe(videoContainer, {
-        childList: false,
-        attributes: true,
-        characterData: false,
-        subtree: true,
-        attributeOldValue: false,
-        characterDataOldValue: false,
-        attributeFilter: ['style', 'class']
-      });
-    }
-  };
-})();
-
-OTDomObserver = new MutationObserver(function(mutations) {
-  var checkNewNode, checkRemovedNode, getVideoContainer, mutation, node, videoContainer, _i, _j, _k, _len, _len1, _len2, _ref, _ref1;
-  getVideoContainer = function(node) {
-    var videoElement;
-    if (typeof node.querySelector !== 'function') {
-      return;
-    }
-    videoElement = node.querySelector('video');
-    if (videoElement) {
-      while ((videoElement = videoElement.parentNode) && !videoElement.hasAttribute('data-streamid')) {
-        continue;
-      }
-      return videoElement;
-    }
-    return false;
-  };
-  checkNewNode = function(node) {
-    var videoContainer;
-    videoContainer = getVideoContainer(node);
-    if (videoContainer) {
-      return OTObserveVideoContainer(videoContainer);
-    }
-  };
-  checkRemovedNode = function(node) {};
-  for (_i = 0, _len = mutations.length; _i < _len; _i++) {
-    mutation = mutations[_i];
-    if (mutation.type === 'attributes') {
-      videoContainer = getVideoContainer(mutation.target);
-      if (videoContainer) {
-        TBUpdateObjects();
-      }
-      continue;
-    }
-    if (mutation.type !== 'childList') {
-      continue;
-    }
-    _ref = mutation.addedNodes;
-    for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
-      node = _ref[_j];
-      checkNewNode(node);
-    }
-    _ref1 = mutation.removedNodes;
-    for (_k = 0, _len2 = _ref1.length; _k < _len2; _k++) {
-      node = _ref1[_k];
-      checkRemovedNode(node);
-    }
-  }
-});
-
 pdebug = function(msg, data) {
   return console.log("JS Lib: " + msg + " - ", data);
-};
-
-OTOnScrollEvent = function(e) {
-  var position, target, video, videos, _i, _len, _results;
-  target = e.target;
-  videos = target.querySelectorAll('[data-streamid]');
-  if (videos) {
-    _results = [];
-    for (_i = 0, _len = videos.length; _i < _len; _i++) {
-      video = videos[_i];
-      position = getPosition(video);
-      _results.push(Cordova.exec(TBSuccess, TBError, OTPlugin, "updateCamera", [video.getAttribute('data-streamid'), position.top, position.left, position.width, position.height]));
-    }
-    return _results;
-  }
 };
 
 var TBPublisher,
@@ -440,10 +371,10 @@ TBPublisher = (function() {
     this.streamCreated = __bind(this.streamCreated, this);
     this.eventReceived = __bind(this.eventReceived, this);
     this.setSession = __bind(this.setSession, this);
-    var audioBitrate, audioFallbackEnabled, audioSource, cameraName, frameRate, height, insertMode, name, publishAudio, publishVideo, ratios, resolution, videoSource, width, zIndex, _ref, _ref1, _ref10, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
+    var audioBitrate, audioFallbackEnabled, audioSource, borderRadius, cameraName, frameRate, height, insertMode, name, position, publishAudio, publishVideo, ratios, resolution, videoSource, width, zIndex, _ref, _ref1, _ref10, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
     this.sanitizeInputs(one, two);
     pdebug("creating publisher", {});
-    this.position = getPosition(this.pubElement);
+    position = getPosition(this.pubElement);
     name = "";
     publishAudio = "true";
     publishVideo = "true";
@@ -494,13 +425,11 @@ TBPublisher = (function() {
       height: height,
       insertMode: insertMode
     });
-    if (!document.body.contains(this.pubElement)) {
-      width = 0;
-      height = 0;
-    }
-    this.position = getPosition(this.pubElement);
+    position = getPosition(this.pubElement);
+    borderRadius = TBGetBorderRadius(this.element);
+    TBUpdateObjects();
     OT.getHelper().eventing(this);
-    Cordova.exec(TBSuccess, TBError, OTPlugin, "initPublisher", [name, this.position.top, this.position.left, width, height, zIndex, publishAudio, publishVideo, cameraName, ratios.widthRatio, ratios.heightRatio, audioFallbackEnabled, audioBitrate, audioSource, videoSource, frameRate, resolution]);
+    Cordova.exec(TBSuccess, TBError, OTPlugin, "initPublisher", [name, position.top, position.left, width, height, zIndex, publishAudio, publishVideo, cameraName, ratios.widthRatio, ratios.heightRatio, borderRadius, audioFallbackEnabled, audioBitrate, audioSource, videoSource, frameRate, resolution]);
     Cordova.exec(this.eventReceived, TBSuccess, OTPlugin, "addEvent", ["publisherEvents"]);
   }
 
@@ -509,11 +438,7 @@ TBPublisher = (function() {
   };
 
   TBPublisher.prototype.eventReceived = function(response) {
-    if (typeof this[response.eventType] === "function") {
-      return this[response.eventType](response.data);
-    } else {
-      return pdebug("No method found for EventType: '" + response.eventType + "'");
-    }
+    return this[response.eventType](response.data);
   };
 
   TBPublisher.prototype.streamCreated = function(event) {
@@ -725,21 +650,18 @@ TBSession = (function() {
     if ((four != null)) {
       subscriber = new TBSubscriber(one, two, three);
       this.subscriberCallbacks[one.streamId] = four;
-      this.subscribers[one.streamId] = subscriber;
       return subscriber;
     }
     if ((three != null)) {
       if ((typeof two === "string" || two.nodeType === 1 || two instanceof Element) && typeof three === "object") {
         console.log("stream, domId, props");
         subscriber = new TBSubscriber(one, two, three);
-        this.subscribers[one.streamId] = subscriber;
         return subscriber;
       }
       if ((typeof two === "string" || two.nodeType === 1 || two instanceof Element) && typeof three === "function") {
         console.log("stream, domId, completionHandler");
         this.subscriberCallbacks[one.streamId] = three;
         subscriber = new TBSubscriber(one, two, {});
-        this.subscribers[one.streamId] = subscriber;
         return subscriber;
       }
       if (typeof two === "object" && typeof three === "function") {
@@ -747,33 +669,28 @@ TBSession = (function() {
         this.subscriberCallbacks[one.streamId] = three;
         domId = TBGenerateDomHelper();
         subscriber = new TBSubscriber(one, domId, two);
-        this.subscribers[one.streamId] = subscriber;
         return subscriber;
       }
     }
     if ((two != null)) {
       if (typeof two === "string" || two.nodeType === 1 || two instanceof Element) {
         subscriber = new TBSubscriber(one, two, {});
-        this.subscribers[one.streamId] = subscriber;
         return subscriber;
       }
       if (typeof two === "object") {
         domId = TBGenerateDomHelper();
         subscriber = new TBSubscriber(one, domId, two);
-        this.subscribers[one.streamId] = subscriber;
         return subscriber;
       }
       if (typeof two === "function") {
         this.subscriberCallbacks[one.streamId] = two;
         domId = TBGenerateDomHelper();
         subscriber = new TBSubscriber(one, domId, {});
-        this.subscribers[one.streamId] = subscriber;
         return subscriber;
       }
     }
     domId = TBGenerateDomHelper();
     subscriber = new TBSubscriber(one, domId, {});
-    this.subscribers[one.streamId] = subscriber;
     return subscriber;
   };
 
@@ -784,6 +701,7 @@ TBSession = (function() {
     element = this.publisher.pubElement;
     if (element) {
       this.resetElement(element);
+      TBUpdateObjects();
     }
     return Cordova.exec(TBSuccess, TBError, OTPlugin, "unpublish", []);
   };
@@ -798,6 +716,7 @@ TBSession = (function() {
     if (element) {
       this.resetElement(element);
       delete streamElements[elementId];
+      TBUpdateObjects();
     }
     return Cordova.exec(TBSuccess, TBError, OTPlugin, "unsubscribe", [subscriber.streamId]);
   };
@@ -822,7 +741,6 @@ TBSession = (function() {
     this.apiKey = this.apiKey.toString();
     this.connections = {};
     this.streams = {};
-    this.subscribers = {};
     this.alreadyPublishing = false;
     OT.getHelper().eventing(this);
     Cordova.exec(TBSuccess, TBSuccess, OTPlugin, "initSession", [this.apiKey, this.sessionId]);
@@ -866,11 +784,7 @@ TBSession = (function() {
   };
 
   TBSession.prototype.eventReceived = function(response) {
-    if (typeof this[response.eventType] === "function") {
-      return this[response.eventType](response.data);
-    } else {
-      return pdebug("No method found for EventType: '" + response.eventType + "'");
-    }
+    return this[response.eventType](response.data);
   };
 
   TBSession.prototype.connectionCreated = function(event) {
@@ -895,16 +809,6 @@ TBSession = (function() {
   };
 
   TBSession.prototype.sessionConnected = function(event) {
-    document.addEventListener('scroll', OTOnScrollEvent, true);
-    OTDomObserver.observe(document, {
-      childList: true,
-      attributes: true,
-      characterData: false,
-      subtree: true,
-      attributeOldValue: false,
-      characterDataOldValue: false,
-      attributeFilter: ['style', 'class']
-    });
     this.dispatchEvent(new TBEvent("sessionConnected"));
     this.connection = new TBConnection(event.connection);
     this.connections[event.connection.connectionId] = this.connection;
@@ -914,8 +818,6 @@ TBSession = (function() {
 
   TBSession.prototype.sessionDisconnected = function(event) {
     var sessionDisconnectedEvent;
-    document.removeEventListener('scroll', OTOnScrollEvent);
-    OTDomObserver.disconnect();
     this.alreadyPublishing = false;
     sessionDisconnectedEvent = new TBEvent("sessionDisconnected");
     sessionDisconnectedEvent.reason = event.reason;
@@ -942,7 +844,6 @@ TBSession = (function() {
     var stream, streamEvent;
     stream = new TBStream(event.stream, this.connections[event.stream.connectionId]);
     this.streams[stream.streamId] = stream;
-    OT.timeStreamCreated[stream.streamId] = performance.now();
     streamEvent = new TBEvent("streamCreated");
     streamEvent.stream = stream;
     this.dispatchEvent(streamEvent);
@@ -961,6 +862,7 @@ TBSession = (function() {
       if (element) {
         this.resetElement(element);
         delete streamElements[stream.streamId];
+        TBUpdateObjects();
       }
       delete this.streams[stream.streamId];
     }
@@ -970,10 +872,8 @@ TBSession = (function() {
   TBSession.prototype.streamPropertyChanged = function(event) {
     var stream, streamEvent;
     stream = new TBStream(event.stream, this.connections[event.stream.connectionId]);
-    if (this.publisher && this.publisher.stream && this.publisher.stream.streamId === stream.streamId) {
+    if (stream.streamId === "TBPublisher") {
       this.publisher.stream = stream;
-    } else if (this.subscribers[stream.streamId]) {
-      this.subscribers[stream.streamId].stream = stream;
     }
     this.streams[stream.streamId] = stream;
     streamEvent = new TBEvent("streamPropertyChanged");
@@ -1125,7 +1025,7 @@ TBSubscriber = (function() {
     this.disconnected = __bind(this.disconnected, this);
     this.connected = __bind(this.connected, this);
     this.eventReceived = __bind(this.eventReceived, this);
-    var divPosition, height, insertMode, name, obj, position, ratios, subscribeToAudio, subscribeToVideo, width, zIndex, _ref, _ref1;
+    var borderRadius, divPosition, height, insertMode, name, obj, position, ratios, subscribeToAudio, subscribeToVideo, width, zIndex, _ref, _ref1;
     if (divObject instanceof Element) {
       this.element = divObject;
       this.id = this.element.id;
@@ -1134,7 +1034,12 @@ TBSubscriber = (function() {
       this.element = document.getElementById(divObject);
     }
     this.streamId = stream.streamId;
-    this.stream = stream;
+    if ((properties != null) && properties.width === "100%" && properties.height === "100%") {
+      this.element.style.width = "100%";
+      this.element.style.height = "100%";
+      properties.width = "";
+      properties.height = "";
+    }
     divPosition = getPosition(this.element);
     subscribeToVideo = "true";
     zIndex = TBGetZIndex(this.element);
@@ -1162,24 +1067,16 @@ TBSubscriber = (function() {
       height: height,
       insertMode: insertMode
     });
-    if (!document.body.contains(this.element)) {
-      width = 0;
-      height = 0;
-    }
     position = getPosition(this.element);
+    borderRadius = TBGetBorderRadius(this.element);
     ratios = TBGetScreenRatios();
     OT.getHelper().eventing(this);
-    Cordova.exec(TBSuccess, TBError, OTPlugin, "subscribe", [stream.streamId, position.top, position.left, width, height, zIndex, subscribeToAudio, subscribeToVideo, ratios.widthRatio, ratios.heightRatio]);
+    Cordova.exec(TBSuccess, TBError, OTPlugin, "subscribe", [stream.streamId, position.top, position.left, width, height, zIndex, subscribeToAudio, subscribeToVideo, ratios.widthRatio, ratios.heightRatio, borderRadius]);
     Cordova.exec(this.eventReceived, TBSuccess, OTPlugin, "addEvent", ["subscriberEvents"]);
   }
 
   TBSubscriber.prototype.eventReceived = function(response) {
-    pdebug("subscriber event received", response);
-    if (typeof this[response.eventType] === "function") {
-      return this[response.eventType](response.data);
-    } else {
-      return pdebug("No method found for EventType: '" + response.eventType + "'");
-    }
+    return this[response.eventType](response.data);
   };
 
   TBSubscriber.prototype.connected = function(event) {

@@ -58,13 +58,15 @@ class TBPublisher
       width = DefaultWidth
       height = DefaultHeight
     replaceWithVideoStream(@pubElement, PublisherStreamId, {width:width, height:height, insertMode:insertMode})
+    borderRadius = TBGetBorderRadius(@element)
+    TBUpdateObjects()
     # If element is not yet in body, set it to 0 and then the observer will set it properly.
     if !document.body.contains(@pubElement)
       width = 0;
       height = 0;
     @position = getPosition(@pubElement)
     OT.getHelper().eventing(@)
-    Cordova.exec(TBSuccess, TBError, OTPlugin, "initPublisher", [name, @position.top, @position.left, width, height, zIndex, publishAudio, publishVideo, cameraName, ratios.widthRatio, ratios.heightRatio, audioFallbackEnabled, audioBitrate, audioSource, videoSource, frameRate, resolution] )
+    Cordova.exec(TBSuccess, TBError, OTPlugin, "initPublisher", [name, position.top, position.left, width, height, zIndex, publishAudio, publishVideo, cameraName, ratios.widthRatio, ratios.heightRatio, borderRadius, audioFallbackEnabled, audioBitrate, audioSource, videoSource, frameRate, resolution] )
     Cordova.exec(@eventReceived, TBSuccess, OTPlugin, "addEvent", ["publisherEvents"] )
   setSession: (session) =>
     @session = session
