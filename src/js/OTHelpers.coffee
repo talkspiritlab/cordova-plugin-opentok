@@ -87,7 +87,8 @@ TBUpdateObjects = ()->
     streamId = e.dataset.streamid
     console.log("JS sessionId: " + streamId )
     position = getPosition(e)
-    Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio] )
+    borderRadius = TBGetBorderRadius(e)
+    Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio, borderRadius] )
   return
 TBGenerateDomHelper = ->
   domId = "PubSub" + Date.now()
@@ -103,6 +104,38 @@ TBGetZIndex = (ele) ->
       return val
     ele = ele.offsetParent
   return 0
+
+TBGetBorderRadius = (ele) ->
+  while (ele?)
+    borderRadius = new Array(8)
+    vals = window.getComputedStyle(ele, null).borderRadius.split(' ')
+    if vals.length == 0 || vals.length == 1 && parseFloat(vals[0]) == 0
+      ele = ele.offsetParent
+    else
+      for val, i in vals
+        value = parseFloat(val);
+        if vals[i].indexOf('%') > -1
+          position = getPosition(ele)
+          radiiX = (position.width / 100) * value
+          radiiY = (position.height / 100) * value
+        else
+          radiiX = value
+          radiiY = value
+        if i == 0
+          borderRadius = [radiiX, radiiY, radiiX, radiiY, radiiX, radiiY, radiiX, radiiY]
+        if i == 1 or i == 1 and vals.length == 2
+          borderRadius[2] = radiiX
+          borderRadius[3] = radiiY
+          borderRadius[6] = radiiX
+          borderRadius[7] = radiiY
+        if i == 2 or i == 2 and vals.length == 3
+          borderRadius[4] = radiiX
+          borderRadius[5] = radiiY
+        if i == 3 or i == 3 and vals.length == 4
+          borderRadius[6] = radiiX
+          borderRadius[7] = radiiY
+      return borderRadius.join(' ')
+  return '0 0 0 0 0 0 0 0';
 
 TBGetScreenRatios = ()->
     # Ratio between browser window size and viewport size
