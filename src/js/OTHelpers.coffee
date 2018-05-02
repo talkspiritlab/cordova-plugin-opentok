@@ -109,7 +109,7 @@ TBGetBorderRadius = (ele) ->
   while (ele?)
     borderRadius = new Array(8)
     vals = window.getComputedStyle(ele, null).borderRadius.split(' ')
-    if vals.length == 0 && parseInt(vals[0]) == 0
+    if vals.length == 0 || vals.length == 1 && parseFloat(vals[0]) == 0
       ele = ele.offsetParent
     else
       for val, i in vals

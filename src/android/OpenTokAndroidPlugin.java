@@ -135,7 +135,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             }
 
             matrix.postTranslate(xPos, yPos);
-            this.view.setTransform(matrix);setRadius
+            this.view.setTransform(matrix);
         }
 
         @Override
@@ -163,7 +163,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
     public class RunnableUpdateViews implements Runnable {
         public JSONArray mProperty;
         public CameraView mView;
-        public ArrayList<RunnableUpdateViews> allStreamViews;
+        public ArrayList<RunnableUpdateViews> allStreamVi101%ews;
 
         // Used for setting the camera views.
         public float widthRatio;
@@ -216,7 +216,16 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
         }
 
         public void setRadii(float[] radii) {
-            this.mView.setRadius(radii);
+            radii[0] *= widthRatio;
+            radii[1] *= heightRatio;
+            radii[2] *= widthRatio;
+            radii[3] *= heightRatio;
+            radii[4] *= widthRatio;
+            radii[5] *= heightRatio;
+            radii[6] *= widthRatio;
+            radii[7] *= heightRatio;
+
+            this.mView.setRadii(radii);
         }
 
         @SuppressLint("NewApi")
@@ -236,10 +245,10 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
                     ratioIndex = 9;
                 }
                 // Border radius is always after ratios.
-                String[] strArray = mProperty.get(ratioIndex + 2).split(" ");
+                String[] strArray = ((String) mProperty.get(ratioIndex + 2)).split(" ");
                 float[] borderRadius = new float[strArray.length];
                 for(int i = 0; i < strArray.length; i++) {
-                    borderRadius[i] = Float.parseInt(strArray[i]);
+                    borderRadius[i] = Float.parseFloat(strArray[i]);
                 }
 
                 DisplayMetrics metrics = new DisplayMetrics();
@@ -247,8 +256,9 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
                 widthRatio = (float) mProperty.getDouble(ratioIndex) * metrics.density;
                 heightRatio = (float) mProperty.getDouble(ratioIndex + 1) * metrics.density;
+
                 setPosition();
-                setRadius(borderRadius);
+                setRadii(borderRadius);
                 updateZIndices();
             } catch (Exception e) {
                 Log.i(TAG, "error when trying to retrieve properties while resizing properties");
