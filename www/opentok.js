@@ -281,46 +281,55 @@ TBGetZIndex = function(ele) {
 };
 
 TBGetBorderRadius = function(ele) {
-  var borderRadius, i, position, radiiX, radiiY, val, vals, value, _i, _len;
+  var calculate, count, pos, radiar, radiars, radii, radius, style, x, y, _i, _len;
+  radii = [0, 0, 0, 0, 0, 0, 0, 0];
   while ((ele != null)) {
-    borderRadius = new Array(8);
-    vals = window.getComputedStyle(ele, null).borderRadius.split(' ');
-    if (vals.length === 0 || vals.length === 1 && parseFloat(vals[0]) === 0) {
+    style = window.getComputedStyle(ele, null);
+    radius = style.borderRadius.split(' ');
+    if (radius.length === 0 || radius.length === 1 && parseFloat(radius[0]) === 0) {
       ele = ele.offsetParent;
     } else {
-      for (i = _i = 0, _len = vals.length; _i < _len; i = ++_i) {
-        val = vals[i];
-        value = parseFloat(val);
-        if (vals[i].indexOf('%') > -1) {
-          position = getPosition(ele);
-          radiiX = (position.width / 100) * value;
-          radiiY = (position.height / 100) * value;
+      pos = getPosition(ele);
+      radiars = [
+        {
+          radius: style.borderTopLeftRadius.split(' '),
+          borderX: parseFloat(style.borderLeftWidth),
+          borderY: parseFloat(style.borderTopWidth)
+        }, {
+          radius: style.borderTopRightRadius.split(' '),
+          borderX: parseFloat(style.borderRightWidth),
+          borderY: parseFloat(style.borderTopWidth)
+        }, {
+          radius: style.borderBottomRightRadius.split(' '),
+          borderX: parseFloat(style.borderRightWidth),
+          borderY: parseFloat(style.borderBottomWidth)
+        }, {
+          radius: style.borderBottomLeftRadius.split(' '),
+          borderX: parseFloat(style.borderLeftWidth),
+          borderY: parseFloat(style.borderBottomWidth)
+        }
+      ];
+      calculate = function(radius, z) {
+        if (radius.indexOf('%') > -1) {
+          return (z / 100) * parseFloat(radius);
         } else {
-          radiiX = value;
-          radiiY = value;
+          return parseFloat(radius);
         }
-        if (i === 0) {
-          borderRadius = [radiiX, radiiY, radiiX, radiiY, radiiX, radiiY, radiiX, radiiY];
+      };
+      count = 0;
+      for (_i = 0, _len = radiars.length; _i < _len; _i++) {
+        radiar = radiars[_i];
+        x = y = calculate(radiar.radius[0], pos.width);
+        if (radiar.radius.length === 2) {
+          y = calculate(radiar.radius[1], pos.height);
         }
-        if (i === 1 || i === 1 && vals.length === 2) {
-          borderRadius[2] = radiiX;
-          borderRadius[3] = radiiY;
-          borderRadius[6] = radiiX;
-          borderRadius[7] = radiiY;
-        }
-        if (i === 2 || i === 2 && vals.length === 3) {
-          borderRadius[4] = radiiX;
-          borderRadius[5] = radiiY;
-        }
-        if (i === 3 || i === 3 && vals.length === 4) {
-          borderRadius[6] = radiiX;
-          borderRadius[7] = radiiY;
-        }
+        radii[count++] = x - radiar.borderX;
+        radii[count++] = y - radiar.borderY;
       }
-      return borderRadius.join(' ');
+      break;
     }
   }
-  return '0 0 0 0 0 0 0 0';
+  return radii.join(' ');
 };
 
 TBGetScreenRatios = function() {

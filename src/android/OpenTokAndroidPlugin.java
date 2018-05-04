@@ -104,14 +104,14 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             this.radii = radii;
         }
 
-        public void setPosition(int xPos, int yPos, int width, int height) {
+        public void setPosition(float xPos, float yPos, float width, float height) {
             this.x = xPos;
             this.y = yPos;
             this.width = width;
             this.height = height;
 
-            int videoWidth = getWidth();
-            int videoHeight = getHeight();
+            float videoWidth = getWidth();
+            float videoHeight = getHeight();
             if(getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
                 videoWidth = getHeight();
                 videoHeight = getWidth();
@@ -119,7 +119,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
             float videoRatio = (videoHeight / videoWidth);
             float containerRatio = (height / width);
-            float scale = Math.max((float) width / videoWidth, (float) height / videoHeight);
+            float scale = Math.max(width / videoWidth, height / videoHeight);
 
             Matrix matrix = new Matrix();
             this.view.getTransform(matrix);
@@ -127,11 +127,11 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
             float scaledWidth = videoWidth * scale;
             float scaledHeight = videoHeight * scale;
-            if((int) scaledWidth != width) {
-                xPos -= (int) ((scaledWidth - width) / 2);
+            if(scaledWidth != width) {
+                xPos -= (scaledWidth - width) / 2;
             }
-            if((int) scaledHeight != height) {
-                yPos -= (int) ((scaledHeight - height) / 2);
+            if(scaledHeight != height) {
+                yPos -= (scaledHeight - height) / 2;
             }
 
             matrix.postTranslate(xPos, yPos);
@@ -211,7 +211,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
         public void setPosition() {
             try {
-                this.mView.setPosition((int) (mProperty.getInt(2) * widthRatio), (int) (mProperty.getInt(1) * heightRatio), (int) (mProperty.getInt(3) * widthRatio), (int) (mProperty.getInt(4) * heightRatio));
+                this.mView.setPosition(Float.valueOf(mProperty.getString(2)) * widthRatio, Float.valueOf(mProperty.getString(1)) * heightRatio, Float.valueOf(mProperty.getString(3)) * widthRatio, Float.valueOf(mProperty.getString(4)) * heightRatio);
             } catch (Exception e) {}
         }
 
