@@ -161,7 +161,7 @@ TBEvent = (function() {
 
 })();
 
-var OTPublisherError, OTReplacePublisher, TBError, TBGenerateDomHelper, TBGetScreenRatios, TBGetZIndex, TBSuccess, TBUpdateObjects, getPosition, pdebug, replaceWithVideoStream, streamElements;
+var OTPublisherError, OTReplacePublisher, TBError, TBGenerateDomHelper, TBGetBorderRadius, TBGetScreenRatios, TBGetZIndex, TBSuccess, TBUpdateObjects, getPosition, pdebug, replaceWithVideoStream, streamElements;
 
 streamElements = {};
 
@@ -244,7 +244,7 @@ OTPublisherError = function(error) {
 };
 
 TBUpdateObjects = function() {
-  var e, objects, position, ratios, streamId, _i, _len;
+  var borderRadius, e, objects, position, ratios, streamId, _i, _len;
   console.log("JS: Objects being updated in TBUpdateObjects");
   objects = document.getElementsByClassName('OT_root');
   ratios = TBGetScreenRatios();
@@ -254,7 +254,8 @@ TBUpdateObjects = function() {
     streamId = e.dataset.streamid;
     console.log("JS sessionId: " + streamId);
     position = getPosition(e);
-    Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio]);
+    borderRadius = TBGetBorderRadius(e);
+    Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio, borderRadius]);
   }
 };
 
@@ -277,6 +278,58 @@ TBGetZIndex = function(ele) {
     ele = ele.offsetParent;
   }
   return 0;
+};
+
+TBGetBorderRadius = function(ele) {
+  var calculate, count, pos, radiar, radiars, radii, radius, style, x, y, _i, _len;
+  radii = [0, 0, 0, 0, 0, 0, 0, 0];
+  while ((ele != null)) {
+    style = window.getComputedStyle(ele, null);
+    radius = style.borderRadius.split(' ');
+    if (radius.length === 0 || radius.length === 1 && parseFloat(radius[0]) === 0) {
+      ele = ele.offsetParent;
+    } else {
+      pos = getPosition(ele);
+      radiars = [
+        {
+          radius: style.borderTopLeftRadius.split(' '),
+          borderX: parseFloat(style.borderLeftWidth),
+          borderY: parseFloat(style.borderTopWidth)
+        }, {
+          radius: style.borderTopRightRadius.split(' '),
+          borderX: parseFloat(style.borderRightWidth),
+          borderY: parseFloat(style.borderTopWidth)
+        }, {
+          radius: style.borderBottomRightRadius.split(' '),
+          borderX: parseFloat(style.borderRightWidth),
+          borderY: parseFloat(style.borderBottomWidth)
+        }, {
+          radius: style.borderBottomLeftRadius.split(' '),
+          borderX: parseFloat(style.borderLeftWidth),
+          borderY: parseFloat(style.borderBottomWidth)
+        }
+      ];
+      calculate = function(radius, z) {
+        if (radius.indexOf('%') > -1) {
+          return (z / 100) * parseFloat(radius);
+        } else {
+          return parseFloat(radius);
+        }
+      };
+      count = 0;
+      for (_i = 0, _len = radiars.length; _i < _len; _i++) {
+        radiar = radiars[_i];
+        x = y = calculate(radiar.radius[0], pos.width);
+        if (radiar.radius.length === 2) {
+          y = calculate(radiar.radius[1], pos.height);
+        }
+        radii[count++] = x - radiar.borderX;
+        radii[count++] = y - radiar.borderY;
+      }
+      break;
+    }
+  }
+  return radii.join(' ');
 };
 
 TBGetScreenRatios = function() {
@@ -327,7 +380,7 @@ TBPublisher = (function() {
     this.streamCreated = __bind(this.streamCreated, this);
     this.eventReceived = __bind(this.eventReceived, this);
     this.setSession = __bind(this.setSession, this);
-    var audioBitrate, audioFallbackEnabled, audioSource, cameraName, frameRate, height, insertMode, name, position, publishAudio, publishVideo, ratios, resolution, videoSource, width, zIndex, _ref, _ref1, _ref10, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
+    var audioBitrate, audioFallbackEnabled, audioSource, borderRadius, cameraName, frameRate, height, insertMode, name, position, publishAudio, publishVideo, ratios, resolution, videoSource, width, zIndex, _ref, _ref1, _ref10, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
     this.sanitizeInputs(one, two);
     pdebug("creating publisher", {});
     position = getPosition(this.pubElement);
@@ -382,9 +435,10 @@ TBPublisher = (function() {
       insertMode: insertMode
     });
     position = getPosition(this.pubElement);
+    borderRadius = TBGetBorderRadius(this.element);
     TBUpdateObjects();
     OT.getHelper().eventing(this);
-    Cordova.exec(TBSuccess, TBError, OTPlugin, "initPublisher", [name, position.top, position.left, width, height, zIndex, publishAudio, publishVideo, cameraName, ratios.widthRatio, ratios.heightRatio, audioFallbackEnabled, audioBitrate, audioSource, videoSource, frameRate, resolution]);
+    Cordova.exec(TBSuccess, TBError, OTPlugin, "initPublisher", [name, position.top, position.left, width, height, zIndex, publishAudio, publishVideo, cameraName, ratios.widthRatio, ratios.heightRatio, borderRadius, audioFallbackEnabled, audioBitrate, audioSource, videoSource, frameRate, resolution]);
     Cordova.exec(this.eventReceived, TBSuccess, OTPlugin, "addEvent", ["publisherEvents"]);
   }
 
@@ -980,7 +1034,7 @@ TBSubscriber = (function() {
     this.disconnected = __bind(this.disconnected, this);
     this.connected = __bind(this.connected, this);
     this.eventReceived = __bind(this.eventReceived, this);
-    var divPosition, height, insertMode, name, obj, position, ratios, subscribeToAudio, subscribeToVideo, width, zIndex, _ref, _ref1;
+    var borderRadius, divPosition, height, insertMode, name, obj, position, ratios, subscribeToAudio, subscribeToVideo, width, zIndex, _ref, _ref1;
     if (divObject instanceof Element) {
       this.element = divObject;
       this.id = this.element.id;
@@ -1023,9 +1077,10 @@ TBSubscriber = (function() {
       insertMode: insertMode
     });
     position = getPosition(this.element);
+    borderRadius = TBGetBorderRadius(this.element);
     ratios = TBGetScreenRatios();
     OT.getHelper().eventing(this);
-    Cordova.exec(TBSuccess, TBError, OTPlugin, "subscribe", [stream.streamId, position.top, position.left, width, height, zIndex, subscribeToAudio, subscribeToVideo, ratios.widthRatio, ratios.heightRatio]);
+    Cordova.exec(TBSuccess, TBError, OTPlugin, "subscribe", [stream.streamId, position.top, position.left, width, height, zIndex, subscribeToAudio, subscribeToVideo, ratios.widthRatio, ratios.heightRatio, borderRadius]);
     Cordova.exec(this.eventReceived, TBSuccess, OTPlugin, "addEvent", ["subscriberEvents"]);
   }
 

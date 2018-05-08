@@ -87,7 +87,8 @@ TBUpdateObjects = ()->
     streamId = e.dataset.streamid
     console.log("JS sessionId: " + streamId )
     position = getPosition(e)
-    Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio] )
+    borderRadius = TBGetBorderRadius(e)
+    Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio, borderRadius] )
   return
 TBGenerateDomHelper = ->
   domId = "PubSub" + Date.now()
@@ -103,6 +104,39 @@ TBGetZIndex = (ele) ->
       return val
     ele = ele.offsetParent
   return 0
+
+TBGetBorderRadius = (ele) ->
+  radii = [0, 0, 0, 0, 0, 0, 0, 0]
+  while (ele?)
+    style = window.getComputedStyle(ele, null)
+    radius = style.borderRadius.split(' ')
+    if radius.length == 0 || radius.length == 1 && parseFloat(radius[0]) == 0
+      ele = ele.offsetParent
+    else
+      pos = getPosition(ele)
+      radiars = [
+        { radius: style.borderTopLeftRadius.split(' '), borderX: parseFloat(style.borderLeftWidth), borderY: parseFloat(style.borderTopWidth) },
+        { radius: style.borderTopRightRadius.split(' '), borderX: parseFloat(style.borderRightWidth), borderY: parseFloat(style.borderTopWidth) },
+        { radius: style.borderBottomRightRadius.split(' '), borderX: parseFloat(style.borderRightWidth), borderY: parseFloat(style.borderBottomWidth) },
+        { radius: style.borderBottomLeftRadius.split(' '), borderX: parseFloat(style.borderLeftWidth), borderY: parseFloat(style.borderBottomWidth) }
+      ]
+
+      calculate = (radius, z) ->
+        if radius.indexOf('%') > -1
+          return (z / 100) * parseFloat(radius)
+        else
+          return parseFloat(radius)
+
+      count = 0
+      for radiar in radiars
+        x = y = calculate(radiar.radius[0], pos.width)
+        if radiar.radius.length == 2
+          y = calculate(radiar.radius[1], pos.height)
+
+        radii[count++] = x - radiar.borderX
+        radii[count++] = y - radiar.borderY
+      break;
+  return radii.join(' ')
 
 TBGetScreenRatios = ()->
     # Ratio between browser window size and viewport size

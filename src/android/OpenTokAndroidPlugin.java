@@ -86,10 +86,11 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
     public CallbackContext permissionsCallback;
 
     public class CameraView extends ViewGroup {
-        int x = 0;
-        int y = 0;
-        int width = 0;
-        int height = 0;
+        float x = 0;
+        float y = 0;
+        float width = 0;
+        float height = 0;
+        float[] radii = new float[8];
         TextureView view;
 
         public CameraView(Context context, TextureView textureView) {
@@ -99,14 +100,18 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             this.addView(this.view);
         }
 
-        public void setPosition(int xPos, int yPos, int width, int height) {
+        public void setRadii(float[] radii) {
+            this.radii = radii;
+        }
+
+        public void setPosition(float xPos, float yPos, float width, float height) {
             this.x = xPos;
             this.y = yPos;
             this.width = width;
             this.height = height;
 
-            int videoWidth = getWidth();
-            int videoHeight = getHeight();
+            float videoWidth = getWidth();
+            float videoHeight = getHeight();
             if(getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
                 videoWidth = getHeight();
                 videoHeight = getWidth();
@@ -114,7 +119,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
             float videoRatio = (videoHeight / videoWidth);
             float containerRatio = (height / width);
-            float scale = Math.max((float) width / videoWidth, (float) height / videoHeight);
+            float scale = Math.max(width / videoWidth, height / videoHeight);
 
             Matrix matrix = new Matrix();
             this.view.getTransform(matrix);
@@ -122,11 +127,11 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
             float scaledWidth = videoWidth * scale;
             float scaledHeight = videoHeight * scale;
-            if((int) scaledWidth != width) {
-                xPos -= (int) ((scaledWidth - width) / 2);
+            if(scaledWidth != width) {
+                xPos -= (scaledWidth - width) / 2;
             }
-            if((int) scaledHeight != height) {
-                yPos -= (int) ((scaledHeight - height) / 2);
+            if(scaledHeight != height) {
+                yPos -= (scaledHeight - height) / 2;
             }
 
             matrix.postTranslate(xPos, yPos);
@@ -146,7 +151,9 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
         protected void dispatchDraw(Canvas canvas) {
             int save = canvas.save();
             Path clipPath = new Path();
-            clipPath.addRect(new RectF(this.x, this.y, this.width + this.x, this.height + this.y), Path.Direction.CW);
+
+            // Do stuff with this.radii now.
+            clipPath.addRoundRect(new RectF(this.x, this.y, this.width + this.x, this.height + this.y), this.radii, Path.Direction.CW);
             canvas.clipPath(clipPath);
             super.dispatchDraw(canvas);
             canvas.restoreToCount(save);
@@ -204,8 +211,21 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
         public void setPosition() {
             try {
-                this.mView.setPosition((int) (mProperty.getInt(2) * widthRatio), (int) (mProperty.getInt(1) * heightRatio), (int) (mProperty.getInt(3) * widthRatio), (int) (mProperty.getInt(4) * heightRatio));
+                this.mView.setPosition(Float.valueOf(mProperty.getString(2)) * widthRatio, Float.valueOf(mProperty.getString(1)) * heightRatio, Float.valueOf(mProperty.getString(3)) * widthRatio, Float.valueOf(mProperty.getString(4)) * heightRatio);
             } catch (Exception e) {}
+        }
+
+        public void setRadii(float[] radii) {
+            radii[0] *= widthRatio;
+            radii[1] *= heightRatio;
+            radii[2] *= widthRatio;
+            radii[3] *= heightRatio;
+            radii[4] *= widthRatio;
+            radii[5] *= heightRatio;
+            radii[6] *= widthRatio;
+            radii[7] *= heightRatio;
+
+            this.mView.setRadii(radii);
         }
 
         @SuppressLint("NewApi")
@@ -224,13 +244,21 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
                 } else {
                     ratioIndex = 9;
                 }
+                // Border radius is always after ratios.
+                String[] strArray = ((String) mProperty.get(ratioIndex + 2)).split(" ");
+                float[] borderRadius = new float[strArray.length];
+                for(int i = 0; i < strArray.length; i++) {
+                    borderRadius[i] = Float.parseFloat(strArray[i]);
+                }
 
                 DisplayMetrics metrics = new DisplayMetrics();
                 cordova.getActivity().getWindowManager().getDefaultDisplay().getMetrics(metrics);
 
                 widthRatio = (float) mProperty.getDouble(ratioIndex) * metrics.density;
                 heightRatio = (float) mProperty.getDouble(ratioIndex + 1) * metrics.density;
+
                 setPosition();
+                setRadii(borderRadius);
                 updateZIndices();
             } catch (Exception e) {
                 Log.i(TAG, "error when trying to retrieve properties while resizing properties");
@@ -271,18 +299,18 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             String cameraName = "front";
             try {
                 publisherName = this.mProperty.getString(0);
-                audioBitrate = this.mProperty.getInt(12);
-                frameRate = "FPS_" + this.mProperty.getString(15);
-                videoTrack = this.mProperty.getString(14).equals("true");
-                audioTrack = this.mProperty.getString(13).equals("true");
-                audioFallbackEnabled = this.mProperty.getString(11).equals("true");
+                audioBitrate = this.mProperty.getInt(13);
+                frameRate = "FPS_" + this.mProperty.getString(16);
+                videoTrack = this.mProperty.getString(15).equals("true");
+                audioTrack = this.mProperty.getString(14).equals("true");
+                audioFallbackEnabled = this.mProperty.getString(12).equals("true");
                 publishVideo = this.mProperty.getString(7).equals("true");
                 publishAudio = this.mProperty.getString(6).equals("true");
                 cameraName = this.mProperty.getString(8).equals("back") ? "back" : cameraName;
-                if (compareStrings(this.mProperty.getString(16), "1280x720")) {
+                if (compareStrings(this.mProperty.getString(17), "1280x720")) {
                     resolution = "HIGH";
                 }
-                if (compareStrings(this.mProperty.getString(16), "352x288")) {
+                if (compareStrings(this.mProperty.getString(17), "352x288")) {
                     resolution = "LOW";
                 }
                 Log.i(TAG, "publisher properties sanitized");
