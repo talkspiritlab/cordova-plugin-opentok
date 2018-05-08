@@ -114,36 +114,37 @@ TBGetZIndex = (ele) ->
   return 0
 
 TBGetBorderRadius = (ele) ->
+  radii = [0, 0, 0, 0, 0, 0, 0, 0]
   while (ele?)
-    borderRadius = new Array(8)
-    vals = window.getComputedStyle(ele, null).borderRadius.split(' ')
-    if vals.length == 0 || vals.length == 1 && parseFloat(vals[0]) == 0
+    style = window.getComputedStyle(ele, null)
+    radius = style.borderRadius.split(' ')
+    if radius.length == 0 || radius.length == 1 && parseFloat(radius[0]) == 0
       ele = ele.offsetParent
     else
-      for val, i in vals
-        value = parseFloat(val);
-        if vals[i].indexOf('%') > -1
-          position = getPosition(ele)
-          radiiX = (position.width / 100) * value
-          radiiY = (position.height / 100) * value
+      pos = getPosition(ele)
+      radiars = [
+        { radius: style.borderTopLeftRadius.split(' '), borderX: parseFloat(style.borderLeftWidth), borderY: parseFloat(style.borderTopWidth) },
+        { radius: style.borderTopRightRadius.split(' '), borderX: parseFloat(style.borderRightWidth), borderY: parseFloat(style.borderTopWidth) },
+        { radius: style.borderBottomRightRadius.split(' '), borderX: parseFloat(style.borderRightWidth), borderY: parseFloat(style.borderBottomWidth) },
+        { radius: style.borderBottomLeftRadius.split(' '), borderX: parseFloat(style.borderLeftWidth), borderY: parseFloat(style.borderBottomWidth) }
+      ]
+
+      calculate = (radius, z) ->
+        if radius.indexOf('%') > -1
+          return (z / 100) * parseFloat(radius)
         else
-          radiiX = value
-          radiiY = value
-        if i == 0
-          borderRadius = [radiiX, radiiY, radiiX, radiiY, radiiX, radiiY, radiiX, radiiY]
-        if i == 1 or i == 1 and vals.length == 2
-          borderRadius[2] = radiiX
-          borderRadius[3] = radiiY
-          borderRadius[6] = radiiX
-          borderRadius[7] = radiiY
-        if i == 2 or i == 2 and vals.length == 3
-          borderRadius[4] = radiiX
-          borderRadius[5] = radiiY
-        if i == 3 or i == 3 and vals.length == 4
-          borderRadius[6] = radiiX
-          borderRadius[7] = radiiY
-      return borderRadius.join(' ')
-  return '0 0 0 0 0 0 0 0';
+          return parseFloat(radius)
+
+      count = 0
+      for radiar in radiars
+        x = y = calculate(radiar.radius[0], pos.width)
+        if radiar.radius.length == 2
+          y = calculate(radiar.radius[1], pos.height)
+
+        radii[count++] = x - radiar.borderX
+        radii[count++] = y - radiar.borderY
+      break;
+  return radii.join(' ')
 
 TBGetScreenRatios = ()->
     # Ratio between browser window size and viewport size

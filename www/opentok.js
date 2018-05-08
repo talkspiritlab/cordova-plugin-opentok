@@ -52,7 +52,7 @@ window.OT = {
 };
 
 window.TB = OT;
-
+OTPublisherError
 window.addEventListener("orientationchange", (function() {
   setTimeout((function() {
     OT.updateViews();
@@ -166,7 +166,7 @@ TBEvent = (function() {
 
 })();
 
-var OTDomObserver, OTObserveVideoContainer, OTOnScrollEvent, OTPublisherError, OTReplacePublisher, TBError, TBGenerateDomHelper, TBGetBorderRadius, TBGetScreenRatios, TBGetZIndex, TBSuccess, TBUpdateObjects, getPosition, pdebug, replaceWithVideoStream, streamElements;
+var OTPublisherError, OTReplacePublisher, TBError, TBGenerateDomHelper, TBGetBorderRadius, TBGetScreenRatios, TBGetZIndex, TBSuccess, TBUpdateObjects, getPosition, pdebug, replaceWithVideoStream, streamElements;
 
 streamElements = {};
 
@@ -242,7 +242,7 @@ OTPublisherError = function(error) {
 };
 
 TBUpdateObjects = function() {
-  var e, objects, streamId, time, updateObject, _i, _len;
+  var borderRadius, e, objects, position, ratios, streamId, _i, _len;
   console.log("JS: Objects being updated in TBUpdateObjects");
   updateObject = function(e, time) {
     setTimeout(function() {
@@ -264,6 +264,10 @@ TBUpdateObjects = function() {
   for (_i = 0, _len = objects.length; _i < _len; _i++) {
     e = objects[_i];
     streamId = e.dataset.streamid;
+    console.log("JS sessionId: " + streamId);
+    position = getPosition(e);
+    borderRadius = TBGetBorderRadius(e);
+    Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio, borderRadius]);
     time = 0;
     if (typeof window.angular !== "undefined" || typeof window.Ionic !== "undefined") {
       if (OT.timeStreamCreated[streamId]) {
@@ -297,46 +301,55 @@ TBGetZIndex = function(ele) {
 };
 
 TBGetBorderRadius = function(ele) {
-  var borderRadius, i, position, radiiX, radiiY, val, vals, value, _i, _len;
+  var calculate, count, pos, radiar, radiars, radii, radius, style, x, y, _i, _len;
+  radii = [0, 0, 0, 0, 0, 0, 0, 0];
   while ((ele != null)) {
-    borderRadius = new Array(8);
-    vals = window.getComputedStyle(ele, null).borderRadius.split(' ');
-    if (vals.length === 0 || vals.length === 1 && parseFloat(vals[0]) === 0) {
+    style = window.getComputedStyle(ele, null);
+    radius = style.borderRadius.split(' ');
+    if (radius.length === 0 || radius.length === 1 && parseFloat(radius[0]) === 0) {
       ele = ele.offsetParent;
     } else {
-      for (i = _i = 0, _len = vals.length; _i < _len; i = ++_i) {
-        val = vals[i];
-        value = parseFloat(val);
-        if (vals[i].indexOf('%') > -1) {
-          position = getPosition(ele);
-          radiiX = (position.width / 100) * value;
-          radiiY = (position.height / 100) * value;
+      pos = getPosition(ele);
+      radiars = [
+        {
+          radius: style.borderTopLeftRadius.split(' '),
+          borderX: parseFloat(style.borderLeftWidth),
+          borderY: parseFloat(style.borderTopWidth)
+        }, {
+          radius: style.borderTopRightRadius.split(' '),
+          borderX: parseFloat(style.borderRightWidth),
+          borderY: parseFloat(style.borderTopWidth)
+        }, {
+          radius: style.borderBottomRightRadius.split(' '),
+          borderX: parseFloat(style.borderRightWidth),
+          borderY: parseFloat(style.borderBottomWidth)
+        }, {
+          radius: style.borderBottomLeftRadius.split(' '),
+          borderX: parseFloat(style.borderLeftWidth),
+          borderY: parseFloat(style.borderBottomWidth)
+        }
+      ];
+      calculate = function(radius, z) {
+        if (radius.indexOf('%') > -1) {
+          return (z / 100) * parseFloat(radius);
         } else {
-          radiiX = value;
-          radiiY = value;
+          return parseFloat(radius);
         }
-        if (i === 0) {
-          borderRadius = [radiiX, radiiY, radiiX, radiiY, radiiX, radiiY, radiiX, radiiY];
+      };
+      count = 0;
+      for (_i = 0, _len = radiars.length; _i < _len; _i++) {
+        radiar = radiars[_i];
+        x = y = calculate(radiar.radius[0], pos.width);
+        if (radiar.radius.length === 2) {
+          y = calculate(radiar.radius[1], pos.height);
         }
-        if (i === 1 || i === 1 && vals.length === 2) {
-          borderRadius[2] = radiiX;
-          borderRadius[3] = radiiY;
-          borderRadius[6] = radiiX;
-          borderRadius[7] = radiiY;
-        }
-        if (i === 2 || i === 2 && vals.length === 3) {
-          borderRadius[4] = radiiX;
-          borderRadius[5] = radiiY;
-        }
-        if (i === 3 || i === 3 && vals.length === 4) {
-          borderRadius[6] = radiiX;
-          borderRadius[7] = radiiY;
-        }
+        radii[count++] = x - radiar.borderX;
+        radii[count++] = y - radiar.borderY;
       }
-      return borderRadius.join(' ');
+      break;
     }
   }
-  return '0 0 0 0 0 0 0 0';
+  return radii.join(' ');
 };
 
 TBGetScreenRatios = function() {
@@ -482,7 +495,7 @@ TBPublisher = (function() {
     this.streamCreated = __bind(this.streamCreated, this);
     this.eventReceived = __bind(this.eventReceived, this);
     this.setSession = __bind(this.setSession, this);
-    var audioBitrate, audioFallbackEnabled, audioSource, borderRadius, cameraName, frameRate, height, insertMode, name, publishAudio, publishVideo, ratios, resolution, videoSource, width, zIndex, _ref, _ref1, _ref10, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
+    var audioBitrate, audioFallbackEnabled, audioSource, borderRadius, cameraName, frameRate, height, insertMode, name, position, publishAudio, publishVideo, ratios, resolution, videoSource, width, zIndex, _ref, _ref1, _ref10, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
     this.sanitizeInputs(one, two);
     pdebug("creating publisher", {});
     this.position = getPosition(this.pubElement);
@@ -536,6 +549,7 @@ TBPublisher = (function() {
       height: height,
       insertMode: insertMode
     });
+    position = getPosition(this.pubElement);
     borderRadius = TBGetBorderRadius(this.element);
     TBUpdateObjects();
     if (!document.body.contains(this.pubElement)) {
@@ -544,7 +558,7 @@ TBPublisher = (function() {
     }
     this.position = getPosition(this.pubElement);
     OT.getHelper().eventing(this);
-    Cordova.exec(TBSuccess, TBError, OTPlugin, "initPublisher", [name, this.position.top, this.position.left, width, height, zIndex, publishAudio, publishVideo, cameraName, ratios.widthRatio, ratios.heightRatio, borderRadius, audioFallbackEnabled, audioBitrate, audioSource, videoSource, frameRate, resolution]);
+    Cordova.exec(TBSuccess, TBError, OTPlugin, "initPublisher", [name, position.top, position.left, width, height, zIndex, publishAudio, publishVideo, cameraName, ratios.widthRatio, ratios.heightRatio, borderRadius, audioFallbackEnabled, audioBitrate, audioSource, videoSource, frameRate, resolution]);
     Cordova.exec(this.eventReceived, TBSuccess, OTPlugin, "addEvent", ["publisherEvents"]);
   }
 
