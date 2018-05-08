@@ -252,6 +252,12 @@
         // Set depth location of camera view based on CSS z-index.
         _publisher.view.layer.zPosition = zIndex;
 
+        // Ensure that we can click through view when it's behind WebView
+        _publisher.view.userInteractionEnabled = YES;
+        if(zIndex < 0) {
+            _publisher.view.userInteractionEnabled = NO;
+        }
+
         // If the zIndex is 0(default) bring the view to the top, last one wins.
         // See: https://github.com/saghul/cordova-plugin-iosrtc/blob/5b6a180b324c8c9bac533fa481a457b74183c740/src/PluginMediaStreamRenderer.swift#L191
         if(zIndex == 0) {
@@ -270,6 +276,12 @@
 
         // Set depth location of camera view based on CSS z-index.
         streamInfo.view.layer.zPosition = zIndex;
+
+        // Ensure that we can click through view when it's behind WebView
+        streamInfo.view.userInteractionEnabled = YES;
+        if(zIndex < 0) {
+            streamInfo.view.userInteractionEnabled = NO;
+        }
 
         // If the zIndex is 0(default) bring the view to the top, last one wins.
         // See: https://github.com/saghul/cordova-plugin-iosrtc/blob/5b6a180b324c8c9bac533fa481a457b74183c740/src/PluginMediaStreamRenderer.swift#L191
