@@ -292,14 +292,14 @@
 }
 - (void)updateCamera:(CDVInvokedUrlCommand*)command{
     NSString* sid = [command.arguments objectAtIndex:0];
-    int top = [[command.arguments objectAtIndex:1] intValue];
-    int left = [[command.arguments objectAtIndex:2] intValue];
-    int width = [[command.arguments objectAtIndex:3] intValue];
-    int height = [[command.arguments objectAtIndex:4] intValue];
+    CGFloat top = [[command.arguments objectAtIndex:1] intValue];
+    CGFloat left = [[command.arguments objectAtIndex:2] intValue];
+    CGFloat width = [[command.arguments objectAtIndex:3] intValue];
+    CGFloat height = [[command.arguments objectAtIndex:4] intValue];
 
     [self setPosition: sid top: top left: left width: width height: height];
 }
-- (void)setPosition:(NSString*)sid top:(int)top left:(int)left width:(int)width height:(int)height {
+- (void)setPosition:(NSString*)sid top:(CGFloat)top left:(CGFloat)left width:(CGFloat)width height:(CGFloat)height {
     int offsetTop = 20;
     if (statusBarPlugin) {
         // We set the offsetTop to the top position of the webView because the StatusBarPlugin changes the top position to the proper offset.
