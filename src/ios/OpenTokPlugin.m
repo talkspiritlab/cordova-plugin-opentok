@@ -420,7 +420,7 @@
     [subscriberDictionary setObject:sub forKey:myStream.streamId];
 
     [sub.view setFrame:CGRectMake(left, top, width, height)];
-    NSString* strRadius = [command.arguments objectAtIndex:11];
+
     NSString* strRadius = [command.arguments objectAtIndex:11];
     NSArray* strArray = [strRadius componentsSeparatedByString:@" "];
 
