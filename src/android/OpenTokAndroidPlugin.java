@@ -86,10 +86,10 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
     public CallbackContext permissionsCallback;
 
     public class CameraView extends ViewGroup {
-        int x = 0;
-        int y = 0;
-        int width = 0;
-        int height = 0;
+        float x = 0;
+        float y = 0;
+        float width = 0;
+        float height = 0;
         float[] radii = new float[8];
         TextureView view;
 
