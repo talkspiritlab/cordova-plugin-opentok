@@ -52,7 +52,7 @@ window.OT = {
 };
 
 window.TB = OT;
-OTPublisherError
+
 window.addEventListener("orientationchange", (function() {
   setTimeout((function() {
     OT.updateViews();
@@ -166,7 +166,7 @@ TBEvent = (function() {
 
 })();
 
-var OTPublisherError, OTReplacePublisher, TBError, TBGenerateDomHelper, TBGetBorderRadius, TBGetScreenRatios, TBGetZIndex, TBSuccess, TBUpdateObjects, getPosition, pdebug, replaceWithVideoStream, streamElements;
+var OTDomObserver, OTObserveVideoContainer, OTOnScrollEvent, OTPublisherError, OTReplacePublisher, TBError, TBGenerateDomHelper, TBGetBorderRadius, TBGetScreenRatios, TBGetZIndex, TBSuccess, TBUpdateObjects, getPosition, pdebug, replaceWithVideoStream, streamElements;
 
 streamElements = {};
 
@@ -242,7 +242,7 @@ OTPublisherError = function(error) {
 };
 
 TBUpdateObjects = function() {
-  var borderRadius, e, objects, position, ratios, streamId, _i, _len;
+  var e, objects, streamId, time, updateObject, _i, _len;
   console.log("JS: Objects being updated in TBUpdateObjects");
   updateObject = function(e, time) {
     setTimeout(function() {
@@ -251,11 +251,12 @@ TBUpdateObjects = function() {
       streamId = e.dataset.streamid;
       position = getPosition(e);
       zIndex = TBGetZIndex(e);
-      if (!e.TBPosition || position.top !== e.TBPosition.top || position.left !== e.TBPosition.left || position.width !== e.TBPosition.width || position.height !== e.TBPosition.height || zIndex !== e.TBZIndex) {
+      borderRadius = TBGetBorderRadius(e);
+      if (e.TBBorderRadius !== borderRadius || !e.TBPosition || position.top !== e.TBPosition.top || position.left !== e.TBPosition.left || position.width !== e.TBPosition.width || position.height !== e.TBPosition.height || zIndex !== e.TBZIndex) {
         console.log("JS: Object updated with sessionId " + streamId + " updated");
         e.TBPosition = position;
         e.TBZIndex = zIndex;
-        borderRadius = TBGetBorderRadius(e);
+        e.TBBorderRadius = borderRadius;
         return Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, zIndex, ratios.widthRatio, ratios.heightRatio, borderRadius]);
       }
     }, time);
@@ -264,10 +265,6 @@ TBUpdateObjects = function() {
   for (_i = 0, _len = objects.length; _i < _len; _i++) {
     e = objects[_i];
     streamId = e.dataset.streamid;
-    console.log("JS sessionId: " + streamId);
-    position = getPosition(e);
-    borderRadius = TBGetBorderRadius(e);
-    Cordova.exec(TBSuccess, TBError, OTPlugin, "updateView", [streamId, position.top, position.left, position.width, position.height, TBGetZIndex(e), ratios.widthRatio, ratios.heightRatio, borderRadius]);
     time = 0;
     if (typeof window.angular !== "undefined" || typeof window.Ionic !== "undefined") {
       if (OT.timeStreamCreated[streamId]) {
