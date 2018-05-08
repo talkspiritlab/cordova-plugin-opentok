@@ -120,7 +120,7 @@ OTError = (function() {
     1413: 'OTSessionSignalDataTooLong',
     1022: 'OTConnectionDropped',
     1112: 'OTSessionSubscriberNotFound',
-    1113: 'OTSessionPublisherNotFound',
+    1113: 'OTSessionPubrgelijkbarelisherNotFound',
     0: 'OTPublisherSuccess',
     1010: 'OTSessionDisconnected',
     2000: 'OTPublisherInternalError',

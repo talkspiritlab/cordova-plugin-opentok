@@ -199,6 +199,33 @@
     maskLayer.path = path;
     _publisher.view.layer.mask = maskLayer;
 
+    NSString* strRadius = [command.arguments objectAtIndex:11];
+    NSArray* strArray = [strRadius componentsSeparatedByString:@" "];
+
+    CGFloat topLeftX = [strArray[0] floatValue];
+    CGFloat topLeftY = [strArray[1] floatValue];
+    CGFloat topRightX = [strArray[2] floatValue];
+    CGFloat topRightY = [strArray[3] floatValue];
+    CGFloat bottomRightX = [strArray[4] floatValue];
+    CGFloat bottomRightY = [strArray[5] floatValue];
+    CGFloat bottomLeftX = [strArray[6] floatValue];
+    CGFloat bottomLeftY = [strArray[7] floatValue];
+
+    CGMutablePathRef path = CGPathCreateMutable();
+    CGPathAddRect(path, NULL, CGRectMake(topLeftX, 0, width - topLeftX - topRightX, height / 2));
+    CGPathAddRect(path, NULL, CGRectMake(bottomLeftX, height / 2, width - bottomLeftX - bottomRightX, height));
+    CGPathAddRect(path, NULL, CGRectMake(0, topLeftY, width / 2, height - topLeftY - bottomLeftY));
+    CGPathAddRect(path, NULL, CGRectMake(width / 2, topRightY, width, height - topRightY - bottomRightY));
+
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(0, 0, topLeftX * 2, topLeftY * 2));
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(width - (topRightX * 2), 0, topRightX * 2, topRightY * 2));
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(0, height - (bottomLeftY * 2) , bottomLeftX * 2,     bottomLeftY * 2));
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(width - (bottomRightX * 2), height - (bottomRightY * 2), bottomRightX * 2, bottomRightY * 2));
+
+    CAShapeLayer *maskLayer = [[CAShapeLayer alloc] init];
+    maskLayer.path = path;
+    _publisher.view.layer.mask = maskLayer;
+
     // Set depth location of camera view based on CSS z-index.
     _publisher.view.layer.zPosition = zIndex;
 
@@ -253,8 +280,16 @@
 
         _publisher.view.layer.mask = maskLayer;
 
+        _publisher.view.layer.mask = maskLayer;
+
         // Set depth location of camera view based on CSS z-index.
         _publisher.view.layer.zPosition = zIndex;
+
+        // Ensure that we can click through view when it's behind WebView
+        _publisher.view.userInteractionEnabled = YES;
+        if(zIndex < 0) {
+            _publisher.view.userInteractionEnabled = NO;
+        }
 
         // If the zIndex is 0(default) bring the view to the top, last one wins.
         // See: https://github.com/saghul/cordova-plugin-iosrtc/blob/5b6a180b324c8c9bac533fa481a457b74183c740/src/PluginMediaStreamRenderer.swift#L191
@@ -272,8 +307,16 @@
 
         streamInfo.view.layer.mask = maskLayer;
 
+        streamInfo.view.layer.mask = maskLayer;
+
         // Set depth location of camera view based on CSS z-index.
         streamInfo.view.layer.zPosition = zIndex;
+
+        // Ensure that we can click through view when it's behind WebView
+        streamInfo.view.userInteractionEnabled = YES;
+        if(zIndex < 0) {
+            streamInfo.view.userInteractionEnabled = NO;
+        }
 
         // If the zIndex is 0(default) bring the view to the top, last one wins.
         // See: https://github.com/saghul/cordova-plugin-iosrtc/blob/5b6a180b324c8c9bac533fa481a457b74183c740/src/PluginMediaStreamRenderer.swift#L191
