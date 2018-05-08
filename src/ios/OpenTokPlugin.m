@@ -292,10 +292,10 @@
 }
 - (void)updateCamera:(CDVInvokedUrlCommand*)command{
     NSString* sid = [command.arguments objectAtIndex:0];
-    CGFloat top = [[command.arguments objectAtIndex:1] intValue];
-    CGFloat left = [[command.arguments objectAtIndex:2] intValue];
-    CGFloat width = [[command.arguments objectAtIndex:3] intValue];
-    CGFloat height = [[command.arguments objectAtIndex:4] intValue];
+    CGFloat top = [[command.arguments objectAtIndex:1] floatValue];
+    CGFloat left = [[command.arguments objectAtIndex:2] floatValue];
+    CGFloat width = [[command.arguments objectAtIndex:3] floatValue];
+    CGFloat height = [[command.arguments objectAtIndex:4] floatValue];
 
     [self setPosition: sid top: top left: left width: width height: height];
 }
