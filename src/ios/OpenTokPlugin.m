@@ -421,7 +421,7 @@
 
     [sub.view setFrame:CGRectMake(left, top, width, height)];
 
-    NSString* strRadius = [command.arguments objectAtIndex:11];
+    NSString* strRadius = [command.arguments objectAtIndex:10];
     NSArray* strArray = [strRadius componentsSeparatedByString:@" "];
 
     CGFloat topLeftX = [strArray[0] floatValue];
