@@ -615,6 +615,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             final RunnableSubscriber runsub = subscriberCollection.get( args.getString(0) );
             if (runsub != null) {
                 runsub.removeStreamView();
+                subscriberCollection.remove(args.getString(0));
                 callbackContext.success();
                 return true;
             }
