@@ -9,8 +9,6 @@
     <license>Apache 2.0</license>
     <keywords>opentok,tokbox</keywords>
 
-    <dependency id="cordova-plugin-wkwebview-engine" version="1.1.4"/>
-
     <platform name="android">
       <framework src="build-extras.gradle" custom="true" type="gradleReference" />
       <framework src="com.android.support:appcompat-v7:23.1.0" />
