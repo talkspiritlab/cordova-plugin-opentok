@@ -50,11 +50,6 @@ class TBSubscriber
 
     @streamId = stream.streamId
     @stream = stream
-    if(properties? && properties.width=="100%" && properties.height == "100%")
-      @element.style.width="100%"
-      @element.style.height="100%"
-      properties.width = ""
-      properties.height = ""
     divPosition = getPosition(@element)
     subscribeToVideo="true"
     zIndex = TBGetZIndex(@element)
@@ -74,14 +69,23 @@ class TBSubscriber
       width = DefaultWidth
       height = DefaultHeight
     obj = replaceWithVideoStream(@element, stream.streamId, {width:width, height:height, insertMode:insertMode})
+    # If element is not yet in body, set it to 0 and then the observer will set it properly.
+    if !document.body.contains(@element)
+      width = 0;
+      height = 0;
     position = getPosition(@element)
+    borderRadius = TBGetBorderRadius(@element)
     ratios = TBGetScreenRatios()
     OT.getHelper().eventing(@)
-    Cordova.exec(TBSuccess, TBError, OTPlugin, "subscribe", [stream.streamId, position.top, position.left, width, height, zIndex, subscribeToAudio, subscribeToVideo, ratios.widthRatio, ratios.heightRatio] )
+    Cordova.exec(TBSuccess, TBError, OTPlugin, "subscribe", [stream.streamId, position.top, position.left, width, height, zIndex, subscribeToAudio, subscribeToVideo, ratios.widthRatio, ratios.heightRatio, borderRadius] )
     Cordova.exec(@eventReceived, TBSuccess, OTPlugin, "addEvent", ["subscriberEvents"] )
 
   eventReceived: (response) =>
-    @[response.eventType](response.data)
+    pdebug "subscriber event received", response
+    if typeof @[response.eventType] == "function"
+      @[response.eventType](response.data)
+    else
+      pdebug "No method found for EventType: '" + response.eventType + "'";
   connected: (event) =>
     streamEvent = new TBEvent("connected")
     streamEvent.stream = event.streamId

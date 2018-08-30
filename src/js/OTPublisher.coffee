@@ -18,7 +18,7 @@ class TBPublisher
   constructor: (one, two) ->
     @sanitizeInputs(one, two)
     pdebug "creating publisher", {}
-    position = getPosition(@pubElement)
+    @position = getPosition(@pubElement)
     name=""
     publishAudio="true"
     publishVideo="true"
@@ -59,14 +59,23 @@ class TBPublisher
       height = DefaultHeight
     replaceWithVideoStream(@pubElement, PublisherStreamId, {width:width, height:height, insertMode:insertMode})
     position = getPosition(@pubElement)
+    borderRadius = TBGetBorderRadius(@element)
     TBUpdateObjects()
+    # If element is not yet in body, set it to 0 and then the observer will set it properly.
+    if !document.body.contains(@pubElement)
+      width = 0;
+      height = 0;
+    @position = getPosition(@pubElement)
     OT.getHelper().eventing(@)
-    Cordova.exec(TBSuccess, TBError, OTPlugin, "initPublisher", [name, position.top, position.left, width, height, zIndex, publishAudio, publishVideo, cameraName, ratios.widthRatio, ratios.heightRatio, audioFallbackEnabled, audioBitrate, audioSource, videoSource, frameRate, resolution] )
+    Cordova.exec(TBSuccess, TBError, OTPlugin, "initPublisher", [name, position.top, position.left, width, height, zIndex, publishAudio, publishVideo, cameraName, ratios.widthRatio, ratios.heightRatio, borderRadius, audioFallbackEnabled, audioBitrate, audioSource, videoSource, frameRate, resolution] )
     Cordova.exec(@eventReceived, TBSuccess, OTPlugin, "addEvent", ["publisherEvents"] )
   setSession: (session) =>
     @session = session
   eventReceived: (response) =>
-    @[response.eventType](response.data)
+    if typeof @[response.eventType] == "function"
+      @[response.eventType](response.data)
+    else
+      pdebug "No method found for EventType: '" + response.eventType + "'";
   streamCreated: (event) =>
     @stream = new TBStream( event.stream, @session.sessionConnected )
     streamEvent = new TBEvent("streamCreated")

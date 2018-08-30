@@ -18,6 +18,7 @@
     NSString *apiKey;
     NSString *sessionId;
     NSMutableDictionary *observersDictionary;
+    Boolean statusBarPlugin;
 }
 
 @synthesize exceptionId;
@@ -29,6 +30,7 @@
     [self.webView setOpaque:false];
     [self.webView setBackgroundColor:UIColor.clearColor];
 
+    statusBarPlugin = true;
     callbackList = [[NSMutableDictionary alloc] init];
 }
 - (void)addEvent:(CDVInvokedUrlCommand*)command{
@@ -120,25 +122,25 @@
 
     // Get Parameters
     NSString* name = [command.arguments objectAtIndex:0];
-    int top = [[command.arguments objectAtIndex:1] intValue];
-    int left = [[command.arguments objectAtIndex:2] intValue];
-    int width = [[command.arguments objectAtIndex:3] intValue];
-    int height = [[command.arguments objectAtIndex:4] intValue];
+    CGFloat top = [[command.arguments objectAtIndex:1] floatValue];
+    CGFloat left = [[command.arguments objectAtIndex:2] floatValue];
+    CGFloat width = [[command.arguments objectAtIndex:3] floatValue];
+    CGFloat height = [[command.arguments objectAtIndex:4] floatValue];
     int zIndex = [[command.arguments objectAtIndex:5] intValue];
     int audioBitrate = [[command.arguments objectAtIndex:12] intValue];
-    int cameraFrameRate = [[command.arguments objectAtIndex: 15] intValue];
+    int cameraFrameRate = [[command.arguments objectAtIndex: 16] intValue];
     NSString* publishAudio = [command.arguments objectAtIndex:6];
     NSString* publishVideo = [command.arguments objectAtIndex:7];
     NSString* cameraPosition = [command.arguments objectAtIndex:8];
-    NSString* audioFallbackEnabled = [command.arguments objectAtIndex: 11];
-    NSString* audioTrack = [command.arguments objectAtIndex: 13];
-    NSString* videoTrack = [command.arguments objectAtIndex: 14];
-    NSString* cameraResolution = [command.arguments objectAtIndex: 16];
+    NSString* audioFallbackEnabled = [command.arguments objectAtIndex: 12];
+    NSString* audioTrack = [command.arguments objectAtIndex: 14];
+    NSString* videoTrack = [command.arguments objectAtIndex: 15];
+    NSString* cameraResolution = [command.arguments objectAtIndex: 17];
 
     // Sanitize publisher properties
     if ([cameraResolution isEqualToString:@"1280x720"]) {
       finalCameraResolution = OTCameraCaptureResolutionHigh;
-    }else if ([cameraResolution isEqualToString:@"352x288"]) {
+    }else if ([cameraResolution isEqualToString:@"320x240"]) {
       finalCameraResolution = OTCameraCaptureResolutionLow;
     } else {
       finalCameraResolution = OTCameraCaptureResolutionMedium;
@@ -171,8 +173,63 @@
     [_publisher setPublishAudio:bpubAudio];
     [_publisher setPublishVideo:bpubVideo];
     [_publisher setAudioFallbackEnabled:baudioFallbackEnabled];
-    [self.webView.scrollView addSubview:_publisher.view];
-    [_publisher.view setFrame:CGRectMake(left, top, width, height)];
+    [self.webView.superview addSubview:_publisher.view];
+
+    [self setPosition: @"TBPublisher" top: top left: left width: width height: height];
+
+    NSString* strRadius = [command.arguments objectAtIndex:11];
+    NSArray* strArray = [strRadius componentsSeparatedByString:@" "];
+
+    CGFloat topLeftX = [strArray[0] floatValue];
+    CGFloat topLeftY = [strArray[1] floatValue];
+    CGFloat topRightX = [strArray[2] floatValue];
+    CGFloat topRightY = [strArray[3] floatValue];
+    CGFloat bottomRightX = [strArray[4] floatValue];
+    CGFloat bottomRightY = [strArray[5] floatValue];
+    CGFloat bottomLeftX = [strArray[6] floatValue];
+    CGFloat bottomLeftY = [strArray[7] floatValue];
+
+    CGMutablePathRef path = CGPathCreateMutable();
+    CGPathAddRect(path, NULL, CGRectMake(topLeftX, 0, width - topLeftX - topRightX, height / 2));
+    CGPathAddRect(path, NULL, CGRectMake(bottomLeftX, height / 2, width - bottomLeftX - bottomRightX, height));
+    CGPathAddRect(path, NULL, CGRectMake(0, topLeftY, width / 2, height - topLeftY - bottomLeftY));
+    CGPathAddRect(path, NULL, CGRectMake(width / 2, topRightY, width, height - topRightY - bottomRightY));
+
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(0, 0, topLeftX * 2, topLeftY * 2));
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(width - (topRightX * 2), 0, topRightX * 2, topRightY * 2));
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(0, height - (bottomLeftY * 2) , bottomLeftX * 2,     bottomLeftY * 2));
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(width - (bottomRightX * 2), height - (bottomRightY * 2), bottomRightX * 2, bottomRightY * 2));
+
+    CAShapeLayer *maskLayer = [[CAShapeLayer alloc] init];
+    maskLayer.path = path;
+    _publisher.view.layer.mask = maskLayer;
+
+    NSString* strRadius = [command.arguments objectAtIndex:11];
+    NSArray* strArray = [strRadius componentsSeparatedByString:@" "];
+
+    CGFloat topLeftX = [strArray[0] floatValue];
+    CGFloat topLeftY = [strArray[1] floatValue];
+    CGFloat topRightX = [strArray[2] floatValue];
+    CGFloat topRightY = [strArray[3] floatValue];
+    CGFloat bottomRightX = [strArray[4] floatValue];
+    CGFloat bottomRightY = [strArray[5] floatValue];
+    CGFloat bottomLeftX = [strArray[6] floatValue];
+    CGFloat bottomLeftY = [strArray[7] floatValue];
+
+    CGMutablePathRef path = CGPathCreateMutable();
+    CGPathAddRect(path, NULL, CGRectMake(topLeftX, 0, width - topLeftX - topRightX, height / 2));
+    CGPathAddRect(path, NULL, CGRectMake(bottomLeftX, height / 2, width - bottomLeftX - bottomRightX, height));
+    CGPathAddRect(path, NULL, CGRectMake(0, topLeftY, width / 2, height - topLeftY - bottomLeftY));
+    CGPathAddRect(path, NULL, CGRectMake(width / 2, topRightY, width, height - topRightY - bottomRightY));
+
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(0, 0, topLeftX * 2, topLeftY * 2));
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(width - (topRightX * 2), 0, topRightX * 2, topRightY * 2));
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(0, height - (bottomLeftY * 2) , bottomLeftX * 2,     bottomLeftY * 2));
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(width - (bottomRightX * 2), height - (bottomRightY * 2), bottomRightX * 2, bottomRightY * 2));
+
+    CAShapeLayer *maskLayer = [[CAShapeLayer alloc] init];
+    maskLayer.path = path;
+    _publisher.view.layer.mask = maskLayer;
 
     // Set depth location of camera view based on CSS z-index.
     _publisher.view.layer.zPosition = zIndex;
@@ -189,22 +246,60 @@
 - (void)updateView:(CDVInvokedUrlCommand*)command{
     NSString* callback = command.callbackId;
     NSString* sid = [command.arguments objectAtIndex:0];
-    int top = [[command.arguments objectAtIndex:1] intValue];
-    int left = [[command.arguments objectAtIndex:2] intValue];
-    int width = [[command.arguments objectAtIndex:3] intValue];
-    int height = [[command.arguments objectAtIndex:4] intValue];
+    CGFloat top = [[command.arguments objectAtIndex:1] floatValue];
+    CGFloat left = [[command.arguments objectAtIndex:2] floatValue];
+    CGFloat width = [[command.arguments objectAtIndex:3] floatValue];
+    CGFloat height = [[command.arguments objectAtIndex:4] floatValue];
     int zIndex = [[command.arguments objectAtIndex:5] intValue];
+
+    NSString* strRadius = [command.arguments objectAtIndex:8];
+    NSArray* strArray = [strRadius componentsSeparatedByString:@" "];
+
+    CGFloat topLeftX = [strArray[0] floatValue];
+    CGFloat topLeftY = [strArray[1] floatValue];
+    CGFloat topRightX = [strArray[2] floatValue];
+    CGFloat topRightY = [strArray[3] floatValue];
+    CGFloat bottomRightX = [strArray[4] floatValue];
+    CGFloat bottomRightY = [strArray[5] floatValue];
+    CGFloat bottomLeftX = [strArray[6] floatValue];
+    CGFloat bottomLeftY = [strArray[7] floatValue];
+
+    CGMutablePathRef path = CGPathCreateMutable();
+    CGPathAddRect(path, NULL, CGRectMake(topLeftX, 0, width - topLeftX - topRightX, height / 2));
+    CGPathAddRect(path, NULL, CGRectMake(bottomLeftX, height / 2, width - bottomLeftX - bottomRightX, height));
+    CGPathAddRect(path, NULL, CGRectMake(0, topLeftY, width / 2, height - topLeftY - bottomLeftY));
+    CGPathAddRect(path, NULL, CGRectMake(width / 2, topRightY, width, height - topRightY - bottomRightY));
+
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(0, 0, topLeftX * 2, topLeftY * 2));
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(width - (topRightX * 2), 0, topRightX * 2, topRightY * 2));
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(0, height - (bottomLeftY * 2) , bottomLeftX * 2,     bottomLeftY * 2));
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(width - (bottomRightX * 2), height - (bottomRightY * 2), bottomRightX * 2, bottomRightY * 2));
+
+    CAShapeLayer *maskLayer = [[CAShapeLayer alloc] init];
+    maskLayer.path = path;
+
     if ([sid isEqualToString:@"TBPublisher"]) {
         NSLog(@"The Width is: %d", width);
-        _publisher.view.frame = CGRectMake(left, top, width, height);
+        // Reposition the video feeds!
+        [self setPosition: sid top: top left: left width: width height: height];
+
+        _publisher.view.layer.mask = maskLayer;
+
+        _publisher.view.layer.mask = maskLayer;
 
         // Set depth location of camera view based on CSS z-index.
         _publisher.view.layer.zPosition = zIndex;
 
+        // Ensure that we can click through view when it's behind WebView
+        _publisher.view.userInteractionEnabled = YES;
+        if(zIndex < 0) {
+            _publisher.view.userInteractionEnabled = NO;
+        }
+
         // If the zIndex is 0(default) bring the view to the top, last one wins.
         // See: https://github.com/saghul/cordova-plugin-iosrtc/blob/5b6a180b324c8c9bac533fa481a457b74183c740/src/PluginMediaStreamRenderer.swift#L191
         if(zIndex == 0) {
-            [self.webView.scrollView bringSubviewToFront:_publisher.view];
+            [self.webView.superview bringSubviewToFront:_publisher.view];
         }
     }
 
@@ -213,15 +308,25 @@
 
     if (streamInfo) {
         // Reposition the video feeds!
-        streamInfo.view.frame = CGRectMake(left, top, width, height);
+        [self setPosition: sid top: top left: left width: width height: height];
+
+        streamInfo.view.layer.mask = maskLayer;
+
+        streamInfo.view.layer.mask = maskLayer;
 
         // Set depth location of camera view based on CSS z-index.
         streamInfo.view.layer.zPosition = zIndex;
 
+        // Ensure that we can click through view when it's behind WebView
+        streamInfo.view.userInteractionEnabled = YES;
+        if(zIndex < 0) {
+            streamInfo.view.userInteractionEnabled = NO;
+        }
+
         // If the zIndex is 0(default) bring the view to the top, last one wins.
         // See: https://github.com/saghul/cordova-plugin-iosrtc/blob/5b6a180b324c8c9bac533fa481a457b74183c740/src/PluginMediaStreamRenderer.swift#L191
         if(zIndex == 0) {
-            [self.webView.scrollView bringSubviewToFront:_publisher.view];
+            [self.webView.superview bringSubviewToFront:_publisher.view];
         }
     }
 
@@ -229,6 +334,35 @@
     [callbackResult setKeepCallbackAsBool:YES];
     //[self.commandDelegate sendPluginResult:callbackResult toSuccessCallbackString:command.callbackId];
     [self.commandDelegate sendPluginResult:callbackResult callbackId:command.callbackId];
+}
+- (void)hasStatusBarPlugin:(CDVInvokedUrlCommand*)command{
+    statusBarPlugin = [[command.arguments objectAtIndex:0] boolValue];
+}
+- (void)updateCamera:(CDVInvokedUrlCommand*)command{
+    NSString* sid = [command.arguments objectAtIndex:0];
+    CGFloat top = [[command.arguments objectAtIndex:1] floatValue];
+    CGFloat left = [[command.arguments objectAtIndex:2] floatValue];
+    CGFloat width = [[command.arguments objectAtIndex:3] floatValue];
+    CGFloat height = [[command.arguments objectAtIndex:4] floatValue];
+
+    [self setPosition: sid top: top left: left width: width height: height];
+}
+- (void)setPosition:(NSString*)sid top:(CGFloat)top left:(CGFloat)left width:(CGFloat)width height:(CGFloat)height {
+    int offsetTop = 20;
+    if (statusBarPlugin) {
+        // We set the offsetTop to the top position of the webView because the StatusBarPlugin changes the top position to the proper offset.
+        offsetTop = self.webView.frame.origin.y;
+    } else if ([UIApplication sharedApplication].isStatusBarHidden) {
+        offsetTop = 0;
+    }
+
+    CGRect frame = CGRectMake(left, top + offsetTop, width, height);
+    if ([sid isEqualToString:@"TBPublisher"]) {
+        _publisher.view.frame = frame;
+    } else {
+        OTSubscriber* streamInfo = [subscriberDictionary objectForKey:sid];
+        streamInfo.view.frame = frame;
+    }
 }
 
 #pragma mark Publisher Methods
@@ -347,10 +481,10 @@
     NSString* sid = [command.arguments objectAtIndex:0];
 
 
-    int top = [[command.arguments objectAtIndex:1] intValue];
-    int left = [[command.arguments objectAtIndex:2] intValue];
-    int width = [[command.arguments objectAtIndex:3] intValue];
-    int height = [[command.arguments objectAtIndex:4] intValue];
+    CGFloat top = [[command.arguments objectAtIndex:1] floatValue];
+    CGFloat left = [[command.arguments objectAtIndex:2] floatValue];
+    CGFloat width = [[command.arguments objectAtIndex:3] floatValue];
+    CGFloat height = [[command.arguments objectAtIndex:4] floatValue];
     int zIndex = [[command.arguments objectAtIndex:5] intValue];
 
     // Acquire Stream, then create a subscriber object and put it into dictionary
@@ -368,10 +502,39 @@
 
     [sub.view setFrame:CGRectMake(left, top, width, height)];
 
+    NSString* strRadius = [command.arguments objectAtIndex:10];
+    NSArray* strArray = [strRadius componentsSeparatedByString:@" "];
+
+    CGFloat topLeftX = [strArray[0] floatValue];
+    CGFloat topLeftY = [strArray[1] floatValue];
+    CGFloat topRightX = [strArray[2] floatValue];
+    CGFloat topRightY = [strArray[3] floatValue];
+    CGFloat bottomRightX = [strArray[4] floatValue];
+    CGFloat bottomRightY = [strArray[5] floatValue];
+    CGFloat bottomLeftX = [strArray[6] floatValue];
+    CGFloat bottomLeftY = [strArray[7] floatValue];
+
+    CGMutablePathRef path = CGPathCreateMutable();
+    CGPathAddRect(path, NULL, CGRectMake(topLeftX, 0, width - topLeftX - topRightX, height / 2));
+    CGPathAddRect(path, NULL, CGRectMake(bottomLeftX, height / 2, width - bottomLeftX - bottomRightX, height));
+    CGPathAddRect(path, NULL, CGRectMake(0, topLeftY, width / 2, height - topLeftY - bottomLeftY));
+    CGPathAddRect(path, NULL, CGRectMake(width / 2, topRightY, width, height - topRightY - bottomRightY));
+
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(0, 0, topLeftX * 2, topLeftY * 2));
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(width - (topRightX * 2), 0, topRightX * 2, topRightY * 2));
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(0, height - (bottomLeftY * 2) , bottomLeftX * 2,     bottomLeftY * 2));
+    CGPathAddEllipseInRect(path, NULL, CGRectMake(width - (bottomRightX * 2), height - (bottomRightY * 2), bottomRightX * 2, bottomRightY * 2));
+
+    CAShapeLayer *maskLayer = [[CAShapeLayer alloc] init];
+    maskLayer.path = path;
+
+    sub.view.layer.mask = maskLayer;
+
+
     // Set depth location of camera view based on CSS z-index.
     sub.view.layer.zPosition = zIndex;
 
-    [self.webView.scrollView addSubview:sub.view];
+    [self.webView.superview addSubview:sub.view];
 
     // Return to JS event handler
     CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];

@@ -9,13 +9,15 @@
     <license>Apache 2.0</license>
     <keywords>opentok,tokbox</keywords>
 
+    <dependency id="cordova-plugin-wkwebview-engine" version="1.1.4"/>
+
     <platform name="android">
       <framework src="build-extras.gradle" custom="true" type="gradleReference" />
       <framework src="com.android.support:appcompat-v7:23.1.0" />
       <framework src="com.android.support:design:23.0.0" />
       <framework src="com.android.volley:volley:1.1.0" />
       <asset src="www/opentok.js" target="opentok.js" />
-  	  <source-file src="src/android/OpenTokAndroidPlugin.java" target-dir="src/com/tokbox/cordova/" />
+      <source-file src="src/android/OpenTokAndroidPlugin.java" target-dir="src/com/tokbox/cordova/" />
       
       <config-file target="AndroidManifest.xml" parent="/manifest">
         <uses-permission android:name="android.permission.CAMERA" />
@@ -92,5 +94,5 @@
     <platform name="browser">
       <hook type="before_plugin_install" src="scripts/downloadJSSDK.js" />
       <asset src="node_modules/@opentok/client/dist/js/opentok.min.js" target="opentok.js"/>
-  </platform>
+    </platform>
 </plugin>

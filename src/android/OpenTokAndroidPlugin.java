@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.lang.Math;
 
 import org.apache.cordova.CordovaInterface;
 import org.apache.cordova.CordovaPlugin;
@@ -21,11 +22,18 @@ import android.content.pm.PackageManager;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.hardware.camera2.CameraManager;
+import android.graphics.Matrix;
+import android.graphics.Path;
+import android.graphics.RectF;
 import android.util.Log;
 import android.util.DisplayMetrics;
+import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import com.android.volley.Request;
@@ -45,6 +53,7 @@ import com.opentok.android.Stream.StreamVideoType;
 import com.opentok.android.Subscriber;
 import com.opentok.android.SubscriberKit;
 import com.opentok.android.BaseVideoRenderer;
+import com.opentok.android.BaseVideoCapturer;
 
 public class OpenTokAndroidPlugin extends CordovaPlugin
         implements  Session.SessionListener,
@@ -78,11 +87,92 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
     public static final String[] perms = {Manifest.permission.INTERNET, Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO};
     public CallbackContext permissionsCallback;
 
+    public boolean inBackground = false;
+    public boolean claimedInBackground = false;
+
+    public class CameraView extends ViewGroup {
+        float x = 0;
+        float y = 0;
+        float width = 0;
+        float height = 0;
+        float[] radii = new float[8];
+        TextureView view;
+
+        public CameraView(Context context, TextureView textureView) {
+            super(context);
+            this.view = textureView;
+            this.setClipChildren(true);
+            this.addView(this.view);
+        }
+
+        public void setRadii(float[] radii) {
+            this.radii = radii;
+        }
+
+        public void setPosition(float xPos, float yPos, float width, float height) {
+            this.x = xPos;
+            this.y = yPos;
+            this.width = width;
+            this.height = height;
+
+            float videoWidth = getWidth();
+            float videoHeight = getHeight();
+            if(getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                videoWidth = getHeight();
+                videoHeight = getWidth();
+            }
+
+            float videoRatio = (videoHeight / videoWidth);
+            float containerRatio = (height / width);
+            float scale = Math.max(width / videoWidth, height / videoHeight);
+
+            Matrix matrix = new Matrix();
+            this.view.getTransform(matrix);
+            matrix.setScale(scale, scale);
+
+            float scaledWidth = videoWidth * scale;
+            float scaledHeight = videoHeight * scale;
+            if(scaledWidth != width) {
+                xPos -= (scaledWidth - width) / 2;
+            }
+            if(scaledHeight != height) {
+                yPos -= (scaledHeight - height) / 2;
+            }
+
+            matrix.postTranslate(xPos, yPos);
+            this.view.setTransform(matrix);
+        }
+
+        @Override
+        protected void onLayout(boolean changed, int l, int t, int r, int b) {
+            int childCount = getChildCount();
+            for(int i=0; i < childCount;i++) {
+                View v = getChildAt(i);
+                v.layout(l, t, r, b);
+            }
+        }
+
+        @Override
+        protected void dispatchDraw(Canvas canvas) {
+            int save = canvas.save();
+            Path clipPath = new Path();
+
+            // Do stuff with this.radii now.
+            clipPath.addRoundRect(new RectF(this.x, this.y, this.width + this.x, this.height + this.y), this.radii, Path.Direction.CW);
+            canvas.clipPath(clipPath);
+            super.dispatchDraw(canvas);
+            canvas.restoreToCount(save);
+        }
+    }
 
     public class RunnableUpdateViews implements Runnable {
         public JSONArray mProperty;
-        public View mView;
+        public CameraView mView;
         public ArrayList<RunnableUpdateViews> allStreamViews;
+
+        // Used for setting the camera views.
+        public float widthRatio;
+        public float heightRatio;
 
         public class CustomComparator implements Comparator<RunnableUpdateViews> {
             @Override
@@ -125,14 +215,41 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             }
         }
 
+        public void removeView() {
+            cordova.getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    ViewGroup parent = (ViewGroup) webView.getView().getParent();
+                    parent.removeView(mView);
+                }
+            });
+        }
+
+        public void setPosition() {
+            try {
+                this.mView.setPosition(Float.valueOf(mProperty.getString(2)) * widthRatio, Float.valueOf(mProperty.getString(1)) * heightRatio, Float.valueOf(mProperty.getString(3)) * widthRatio, Float.valueOf(mProperty.getString(4)) * heightRatio);
+            } catch (Exception e) {}
+        }
+
+        public void setRadii(float[] radii) {
+            radii[0] *= widthRatio;
+            radii[1] *= heightRatio;
+            radii[2] *= widthRatio;
+            radii[3] *= heightRatio;
+            radii[4] *= widthRatio;
+            radii[5] *= heightRatio;
+            radii[6] *= widthRatio;
+            radii[7] *= heightRatio;
+
+            this.mView.setRadii(radii);
+        }
+
         @SuppressLint("NewApi")
         @Override
         public void run() {
             try {
                 Log.i(TAG, "updating view in ui runnable" + mProperty.toString());
                 Log.i(TAG, "updating view in ui runnable " + mView.toString());
-
-                float widthRatio, heightRatio;
 
                 // Ratios are index 6 & 7 on TB.updateViews, 8 & 9 on subscribe event, and 9 & 10 on TB.initPublisher
                 int ratioIndex;
@@ -143,18 +260,21 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
                 } else {
                     ratioIndex = 9;
                 }
+                // Border radius is always after ratios.
+                String[] strArray = ((String) mProperty.get(ratioIndex + 2)).split(" ");
+                float[] borderRadius = new float[strArray.length];
+                for(int i = 0; i < strArray.length; i++) {
+                    borderRadius[i] = Float.parseFloat(strArray[i]);
+                }
 
                 DisplayMetrics metrics = new DisplayMetrics();
                 cordova.getActivity().getWindowManager().getDefaultDisplay().getMetrics(metrics);
 
                 widthRatio = (float) mProperty.getDouble(ratioIndex) * metrics.density;
                 heightRatio = (float) mProperty.getDouble(ratioIndex + 1) * metrics.density;
-                mView.setY(mProperty.getInt(1) * heightRatio);
-                mView.setX(mProperty.getInt(2) * widthRatio);
-                ViewGroup.LayoutParams params = mView.getLayoutParams();
-                params.height = (int) (mProperty.getInt(4) * heightRatio);
-                params.width = (int) (mProperty.getInt(3) * widthRatio);
-                mView.setLayoutParams(params);
+
+                setPosition();
+                setRadii(borderRadius);
                 updateZIndices();
             } catch (Exception e) {
                 Log.i(TAG, "error when trying to retrieve properties while resizing properties");
@@ -170,6 +290,50 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
            audioFallbackEnabled, audioBitrate, audioSource, videoSource, frameRate, cameraResolution]
        */
         public Publisher mPublisher;
+        public boolean publishing = false;
+        public boolean oldPublishVideoState = false;
+
+        private final CameraManager.AvailabilityCallback cameraAvailableCallback = new CameraManager.AvailabilityCallback() {
+            @Override
+            public void onCameraAvailable(String cameraId) {
+                super.onCameraAvailable(cameraId);
+                if(mPublisher != null && publishing) {
+                    BaseVideoCapturer bvc = mPublisher.getCapturer();
+                    // If not yet capturing.. Initialize and start capturing..
+                    if (bvc != null && !bvc.isCaptureStarted()) {
+                        Log.i(TAG, "Camera available");
+                        try {
+                            // Camera claimed in background.
+                            if(inBackground) {
+                                claimedInBackground = true;
+                            }
+                            bvc.init();
+                            bvc.startCapture();
+                            mPublisher.setPublishVideo(oldPublishVideoState);
+                        } catch(Exception e) {
+
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void onCameraUnavailable(String cameraId) {
+                super.onCameraUnavailable(cameraId);
+                // If app is in background, and not camera yet claimed by us in background.. release camera.
+                if(mPublisher != null && inBackground && !claimedInBackground) {
+                    BaseVideoCapturer bvc = mPublisher.getCapturer();
+                    // If still capturing, stop it and release.
+                    if(bvc != null && bvc.isCaptureStarted() ){
+                        Log.i(TAG, "Camera unavailable");
+                        oldPublishVideoState = mPublisher.getPublishVideo();
+                        bvc.stopCapture();
+                        bvc.destroy();
+                        mPublisher.setPublishVideo(false);
+                    }
+                }
+            }
+        };
 
         public RunnablePublisher(JSONArray args) {
             this.mProperty = args;
@@ -195,18 +359,18 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             String cameraName = "front";
             try {
                 publisherName = this.mProperty.getString(0);
-                audioBitrate = this.mProperty.getInt(12);
-                frameRate = "FPS_" + this.mProperty.getString(15);
-                videoTrack = this.mProperty.getString(14).equals("true");
-                audioTrack = this.mProperty.getString(13).equals("true");
-                audioFallbackEnabled = this.mProperty.getString(11).equals("true");
+                audioBitrate = this.mProperty.getInt(13);
+                frameRate = "FPS_" + this.mProperty.getString(16);
+                videoTrack = this.mProperty.getString(15).equals("true");
+                audioTrack = this.mProperty.getString(14).equals("true");
+                audioFallbackEnabled = this.mProperty.getString(12).equals("true");
                 publishVideo = this.mProperty.getString(7).equals("true");
                 publishAudio = this.mProperty.getString(6).equals("true");
                 cameraName = this.mProperty.getString(8).equals("back") ? "back" : cameraName;
-                if (compareStrings(this.mProperty.getString(16), "1280x720")) {
+                if (compareStrings(this.mProperty.getString(17), "1280x720")) {
                     resolution = "HIGH";
                 }
-                if (compareStrings(this.mProperty.getString(16), "352x288")) {
+                if (compareStrings(this.mProperty.getString(17), "352x288")) {
                     resolution = "LOW";
                 }
                 Log.i(TAG, "publisher properties sanitized");
@@ -229,23 +393,32 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             mPublisher.setPublishVideo(publishVideo);
             mPublisher.setPublishAudio(publishAudio);
 
+            oldPublishVideoState = publishVideo;
+
             if (cameraName.equals("back")) {
                 mPublisher.cycleCamera();
             }
+
+            CameraManager manager = (CameraManager) cordova.getActivity().getSystemService(Context.CAMERA_SERVICE);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                manager.registerAvailabilityCallback(cameraAvailableCallback, null);
+            }
         }
+
 
         public void setPropertyFromArray(JSONArray args) {
             this.mProperty = args;
         }
 
         public void startPublishing() {
+            publishing = true;
             mSession.publish(mPublisher);
             cordova.getActivity().runOnUiThread(this);
         }
 
         public void stopPublishing() {
-            ViewGroup parent = (ViewGroup) webView.getView().getParent();
-            parent.removeView(this.mView);
+            publishing = false;
+            this.removeView();
             if(this.mPublisher != null){
                 try {
                     mSession.unpublish(this.mPublisher);
@@ -256,8 +429,12 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
         }
 
         public void destroyPublisher() {
-            ViewGroup parent = (ViewGroup) webView.getView().getParent();
-            parent.removeView(this.mView);
+            CameraManager manager = (CameraManager) cordova.getActivity().getSystemService(Context.CAMERA_SERVICE);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                manager.unregisterAvailabilityCallback(cameraAvailableCallback);
+            }
+
+            this.removeView();
             if (this.mPublisher != null) {
                 this.mPublisher.destroy();
                 this.mPublisher = null;
@@ -266,7 +443,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
         public void run() {
             if(this.mView == null) {
-                this.mView = mPublisher.getView();
+                this.mView = new CameraView(cordova.getActivity().getApplicationContext(), (TextureView) mPublisher.getView());
                 ((ViewGroup) webView.getView().getParent()).addView(this.mView);
 
                 // Set depth location of camera view based on CSS z-index.
@@ -289,7 +466,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
         public void onStreamCreated(PublisherKit arg0, Stream arg1) {
             Log.i(TAG, "publisher stream received");
             streamCollection.put(arg1.getStreamId(), arg1);
-            
+
             streamHasAudio.put(arg1.getStreamId(), arg1.hasAudio());
             streamHasVideo.put(arg1.getStreamId(), arg1.hasVideo());
             JSONObject videoDimensions = new JSONObject();
@@ -364,8 +541,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
         }
 
         public void removeStreamView() {
-            ViewGroup parent = (ViewGroup) webView.getView().getParent();
-            parent.removeView(this.mView);
+            this.removeView();
             if(mSubscriber != null) {
                 try {
                     mSession.unsubscribe(mSubscriber);
@@ -378,7 +554,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
 
         public void run() {
             if(this.mView == null) {
-                this.mView = mSubscriber.getView();
+                this.mView = new CameraView(cordova.getActivity().getApplicationContext(), (TextureView) mSubscriber.getView());
                 ((ViewGroup) webView.getView().getParent()).addView(this.mView);
 
                 // Set depth location of camera view based on CSS z-index.
@@ -545,7 +721,12 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             apiKey = args.getString(0);
             sessionId = args.getString(1);
             Log.i(TAG, "created new session with data: " + args.toString());
-            mSession = new Session(this.cordova.getActivity().getApplicationContext(), apiKey, sessionId);
+            mSession = new Session.Builder(this.cordova.getActivity().getApplicationContext(), apiKey, sessionId).sessionOptions(new Session.SessionOptions() {
+                @Override
+                public boolean useTextureViews() {
+                    return true;
+                }
+            }).build();
             mSession.setSessionListener(this);
             mSession.setConnectionListener(this);
             mSession.setReconnectionListener(this);
@@ -655,6 +836,30 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
                     cordova.getActivity().runOnUiThread(runsub);
                 }
             }
+        } else if (action.equals("hasStatusBarPlugin")) {
+            // Currently only needed for iOS, but for the sake of sanity we include it here aswell.
+        } else if (action.equals("updateCamera")) {
+            int top = args.getInt(1);
+            int left = args.getInt(2);
+            int width = args.getInt(3);
+            int height = args.getInt(4);
+
+            if (args.getString(0).equals("TBPublisher") && myPublisher != null && sessionConnected) {
+                myPublisher.mProperty.put(1, top);
+                myPublisher.mProperty.put(2, left);
+                myPublisher.mProperty.put(3, width);
+                myPublisher.mProperty.put(4, height);
+
+                myPublisher.setPosition();
+            } else {
+                RunnableSubscriber runsub = subscriberCollection.get(args.getString(0));
+                runsub.mProperty.put(1, top);
+                runsub.mProperty.put(2, left);
+                runsub.mProperty.put(3, width);
+                runsub.mProperty.put(4, height);
+
+                runsub.setPosition();
+            }
         } else if (action.equals("exceptionHandler")) {
 
         }
@@ -676,6 +881,21 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
             myPublisher.startPublishing();
             Log.i(TAG, "permission granted-publisher is publishing");
         }
+    }
+
+    @Override
+    public void onPause(boolean multitasking) {
+        super.onPause(multitasking);
+        inBackground = true;
+        Log.i(TAG, "Pause");
+    }
+
+    @Override
+    public void onResume(boolean multitasking) {
+        super.onResume(multitasking);
+        inBackground = false;
+        Log.i(TAG, "Resume");
+        claimedInBackground = false; // We are on foreground, so its now claimed in foreground.
     }
 
     public void alertUser(String message) {
@@ -874,7 +1094,7 @@ public class OpenTokAndroidPlugin extends CordovaPlugin
     @Override
     public void onStreamVideoDimensionsChanged(Session session, Stream stream, int width, int height) {
         JSONObject oldValue = this.streamVideoDimensions.get(stream.getStreamId());
-        
+
         JSONObject newValue = new JSONObject();
         try {
             newValue.put("width", width);

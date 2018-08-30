@@ -119,7 +119,6 @@ class TBSession
     element = @publisher.pubElement
     if(element)
       @resetElement(element)
-      TBUpdateObjects()
     return Cordova.exec(TBSuccess, TBError, OTPlugin, "unpublish", [] )
   unsubscribe: (subscriber) ->
     console.log("JS: Unsubscribe")
@@ -130,7 +129,6 @@ class TBSession
     if(element)
       @resetElement(element)
       delete( streamElements[ elementId ] )
-      TBUpdateObjects()
     return Cordova.exec(TBSuccess, TBError, OTPlugin, "unsubscribe", [subscriber.streamId] )
 
   constructor: (@apiKey, @sessionId) ->
@@ -166,7 +164,10 @@ class TBSession
   # event listeners
   # todo - other events: connectionCreated, connectionDestroyed, signal?, streamPropertyChanged, signal:type?
   eventReceived: (response) =>
-    @[response.eventType](response.data)
+    if typeof @[response.eventType] == "function"
+      @[response.eventType](response.data)
+    else
+      pdebug "No method found for EventType: '" + response.eventType + "'";
   connectionCreated: (event) =>
     connection = new TBConnection( event.connection )
     connectionEvent = new TBEvent("connectionCreated")
@@ -183,12 +184,31 @@ class TBSession
     delete( @connections[ connection.connectionId] )
     return @
   sessionConnected: (event) =>
+    document.addEventListener('scroll', OTOnScrollEvent, true);
+    OTDomObserver.observe(document, {
+      # Set to true if additions and removals of the target node's child elements (including text nodes) are to be observed.
+      childList: true
+      # Set to true if mutations to target's attributes are to be observed.
+      attributes: true
+      # Set to true if mutations to target's data are to be observed.
+      characterData: false
+      # Set to true if mutations to not just target, but also target's descendants are to be observed.
+      subtree: true
+      # Set to true if attributes is set to true and target's attribute value before the mutation needs to be recorded.
+      attributeOldValue: false
+      # Set to true if characterData is set to true and target's data before the mutation needs to be recorded.
+      characterDataOldValue: false
+      # Set to an array of attribute local names (without namespace) if not all attribute mutations need to be observed.
+      attributeFilter: ['style', 'class']
+    })
     @dispatchEvent(new TBEvent("sessionConnected"))
     @connection = new TBConnection( event.connection )
     @connections[event.connection.connectionId] = @connection
     event = null
     return @
   sessionDisconnected: (event) =>
+    document.removeEventListener('scroll', OTOnScrollEvent);
+    OTDomObserver.disconnect()
     @alreadyPublishing = false
     sessionDisconnectedEvent = new TBEvent("sessionDisconnected")
     sessionDisconnectedEvent.reason = event.reason
@@ -206,6 +226,7 @@ class TBSession
   streamCreated: (event) =>
     stream = new TBStream( event.stream, @connections[event.stream.connectionId] )
     @streams[ stream.streamId ] = stream
+    OT.timeStreamCreated[stream.streamId] = performance.now()
     streamEvent = new TBEvent("streamCreated")
     streamEvent.stream = stream
     #streamEvent = new TBEvent( {stream: stream } )
@@ -223,7 +244,6 @@ class TBSession
       if(element)
         @resetElement(element)
         delete( streamElements[ stream.streamId ] )
-        TBUpdateObjects()
       delete( @streams[ stream.streamId ] )
     return @
   streamPropertyChanged: (event) ->

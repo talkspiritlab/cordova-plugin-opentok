@@ -11,6 +11,7 @@
 #     TB.upgradeSystemRequirements()
 
 window.OT =
+  timeStreamCreated: {}
   checkSystemRequirements: ->
     return 1
   initPublisher: (one, two) ->
@@ -58,4 +59,7 @@ window.addEventListener "orientationchange", (->
     return
   ), 1000
   return
+), false
+document.addEventListener "deviceready", (->
+  Cordova.exec(TBSuccess, TBError, OTPlugin, "hasStatusBarPlugin", [window.hasOwnProperty("StatusBar")] )
 ), false
