@@ -427,7 +427,7 @@ OTDomObserver = new MutationObserver(function(mutations) {
     }
     videoElement = node.querySelector('video');
     if (videoElement) {
-      while ((videoElement = videoElement.parentNode) && !videoElement.hasAttribute('data-streamid')) {
+      while ((videoElement = videoElement.parentNode) && videoElement && videoElement.hasAttribute && !videoElement.hasAttribute('data-streamid')) {
         continue;
       }
       return videoElement;
