@@ -185,6 +185,7 @@ replaceWithVideoStream = function(element, streamId, properties) {
   } else {
     newElement = document.createElement("div");
   }
+  if (newElement) {
   newElement.setAttribute("class", "OT_root " + typeClass);
   newElement.setAttribute("data-streamid", streamId);
   newElement.setAttribute("data-insertMode", properties.insertMode);
@@ -220,6 +221,7 @@ replaceWithVideoStream = function(element, streamId, properties) {
   }
   if (properties.insertMode === "after") {
     element.parentNode.insertBefore(newElement, element.nextSibling);
+  }
   }
   return newElement;
 };
