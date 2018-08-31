@@ -186,42 +186,42 @@ replaceWithVideoStream = function(element, streamId, properties) {
     newElement = document.createElement("div");
   }
   if (newElement) {
-  newElement.setAttribute("class", "OT_root " + typeClass);
-  newElement.setAttribute("data-streamid", streamId);
-  newElement.setAttribute("data-insertMode", properties.insertMode);
-  if (typeof properties.width === 'string') {
-    newElement.style.width = properties.width;
-  } else {
-    newElement.style.width = properties.width + "px";
-  }
-  if (typeof properties.height === 'string') {
-    newElement.style.height = properties.height;
-  } else {
-    newElement.style.height = properties.height + "px";
-  }
-  newElement.style.overflow = "hidden";
-  newElement.style['background-color'] = "#000000";
-  streamElements[streamId] = newElement;
-  internalDiv = document.createElement("div");
-  internalDiv.setAttribute("class", VideoContainerClass);
-  internalDiv.style.width = "100%";
-  internalDiv.style.height = "100%";
-  internalDiv.style.left = "0px";
-  internalDiv.style.top = "0px";
-  videoElement = document.createElement("video");
-  videoElement.style.width = "100%";
-  videoElement.style.height = "100%";
-  internalDiv.appendChild(videoElement);
-  newElement.appendChild(internalDiv);
-  if (properties.insertMode === "append") {
-    element.appendChild(newElement);
-  }
-  if (properties.insertMode === "before") {
-    element.parentNode.insertBefore(newElement, element);
-  }
-  if (properties.insertMode === "after") {
-    element.parentNode.insertBefore(newElement, element.nextSibling);
-  }
+    newElement.setAttribute("class", "OT_root " + typeClass);
+    newElement.setAttribute("data-streamid", streamId);
+    newElement.setAttribute("data-insertMode", properties.insertMode);
+    if (typeof properties.width === 'string') {
+      newElement.style.width = properties.width;
+    } else {
+      newElement.style.width = properties.width + "px";
+    }
+    if (typeof properties.height === 'string') {
+      newElement.style.height = properties.height;
+    } else {
+      newElement.style.height = properties.height + "px";
+    }
+    newElement.style.overflow = "hidden";
+    newElement.style['background-color'] = "#000000";
+    streamElements[streamId] = newElement;
+    internalDiv = document.createElement("div");
+    internalDiv.setAttribute("class", VideoContainerClass);
+    internalDiv.style.width = "100%";
+    internalDiv.style.height = "100%";
+    internalDiv.style.left = "0px";
+    internalDiv.style.top = "0px";
+    videoElement = document.createElement("video");
+    videoElement.style.width = "100%";
+    videoElement.style.height = "100%";
+    internalDiv.appendChild(videoElement);
+    newElement.appendChild(internalDiv);
+    if (properties.insertMode === "append") {
+      element.appendChild(newElement);
+    }
+    if (properties.insertMode === "before") {
+      element.parentNode.insertBefore(newElement, element);
+    }
+    if (properties.insertMode === "after") {
+      element.parentNode.insertBefore(newElement, element.nextSibling);
+    }
   }
   return newElement;
 };
@@ -917,7 +917,7 @@ TBSession = (function() {
           break;
         }
       }
-    } else {
+    } else if (element && element.parentNode) {
       element.parentNode.removeChild(element);
     }
   };
